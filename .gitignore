@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+logs/
+outputs/
+
+data/vector_db/my_vector_db/
+data/vector_db/vector_db_t
