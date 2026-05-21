@@ -3,7 +3,7 @@ import json
 from dotenv import load_dotenv
 from openai import OpenAI
 # 【关键第一步】导入你刚刚在另一个文件里写的本地函数和说明书
-from agent_tools import get_weather, query_user, update_user_status, tools_list
+from app.agent.agent_tools import get_weather, query_user, update_user_status, tools_list
 
 load_dotenv()
 client = OpenAI(base_url="https://api.deepseek.com")

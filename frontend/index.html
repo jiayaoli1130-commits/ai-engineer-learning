@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>RAG AI Agent</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background: #f6f7f9;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    section {
+      background: white;
+      padding: 20px;
+      margin-bottom: 24px;
+      border-radius: 10px;
+    }
+
+    textarea,
+    input {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      box-sizing: border-box;
+      margin-top: 8px;
+    }
+
+    textarea {
+      height: 100px;
+    }
+
+    button {
+      margin-top: 12px;
+      margin-right: 8px;
+      padding: 10px 18px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .output {
+      margin-top: 16px;
+      padding: 16px;
+      background: #f1f3f5;
+      border-radius: 8px;
+      min-height: 80px;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <h1>企业知识库 RAG Agent</h1>
+
+  <section>
+    <h2>一、AI 对话</h2>
+    <textarea id="chatMessage" placeholder="例如：我在淘宝买了人体工学椅，可以报销吗？"></textarea>
+    <button onclick="sendChat()">发送给 AI</button>
+    <div id="chatOutput" class="output">AI 回答会显示在这里。</div>
+  </section>
+
+  <section>
+    <h2>二、知识库检索</h2>
+    <input id="searchQuery" placeholder="例如：人体工学椅报销" />
+    <button onclick="searchKnowledge()">检索知识库</button>
+    <div id="searchOutput" class="output">检索结果会显示在这里。</div>
+  </section>
+
+  <section>
+    <h2>三、知识库管理</h2>
+    <input id="filePath" value="./docs/company_rules.md" />
+    <button onclick="ingestKnowledge()">入库文档</button>
+    <button onclick="resetKnowledge()">重置知识库</button>
+    <div id="manageOutput" class="output">管理结果会显示在这里。</div>
+  </section>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+
+    async function sendChat() {
+      const message = document.getElementById("chatMessage").value.trim();
+      const output = document.getElementById("chatOutput");
+
+      if (!message) {
+        output.textContent = "请输入问题。";
+        return;
+      }
+
+      output.textContent = "AI 正在思考中...";
+
+      try {
+        const response = await fetch(`${API_BASE}/chat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            message: message
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.code === 200) {
+          output.textContent = result.data;
+        } else {
+          output.textContent = "请求失败：" + result.msg;
+        }
+      } catch (error) {
+        output.textContent = "请求出错：" + error.message;
+      }
+    }
+
+    async function searchKnowledge() {
+      const query = document.getElementById("searchQuery").value.trim();
+      const output = document.getElementById("searchOutput");
+
+      if (!query) {
+        output.textContent = "请输入检索关键词。";
+        return;
+      }
+
+      output.textContent = "正在检索知识库...";
+
+      try {
+        const response = await fetch(`${API_BASE}/knowledge/search`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            query: query,
+            n_results: 3
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.code === 200) {
+          output.textContent = JSON.stringify(result.data, null, 2);
+        } else {
+          output.textContent = "检索失败：" + result.msg;
+        }
+      } catch (error) {
+        output.textContent = "请求出错：" + error.message;
+      }
+    }
+
+    async function ingestKnowledge() {
+      const filePath = document.getElementById("filePath").value.trim();
+      const output = document.getElementById("manageOutput");
+
+      if (!filePath) {
+        output.textContent = "请输入文件路径。";
+        return;
+      }
+
+      output.textContent = "正在入库文档...";
+
+      try {
+        const response = await fetch(`${API_BASE}/knowledge/ingest`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            file_path: filePath
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.code === 200) {
+          output.textContent = JSON.stringify(result.data, null, 2);
+        } else {
+          output.textContent = "入库失败：" + result.msg;
+        }
+      } catch (error) {
+        output.textContent = "请求出错：" + error.message;
+      }
+    }
+
+    async function resetKnowledge() {
+      const output = document.getElementById("manageOutput");
+
+      const confirmed = confirm("确定要重置知识库吗？这会清空当前 ChromaDB collection。");
+
+      if (!confirmed) {
+        return;
+      }
+
+      output.textContent = "正在重置知识库...";
+
+      try {
+        const response = await fetch(`${API_BASE}/knowledge/reset`, {
+          method: "POST"
+        });
+
+        const result = await response.json();
+
+        if (result.code === 200) {
+          output.textContent = JSON.stringify(result.data, null, 2);
+        } else {
+          output.textContent = "重置失败：" + result.msg;
+        }
+      } catch (error) {
+        output.textContent = "请求出错：" + error.message;
+      }
+    }
+  </script>
+</body>
+</html>
