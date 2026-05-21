@@ -20,3 +20,7 @@ class IngestRequest(BaseModel):
 class SearchRequest(BaseModel):
     query: str
     n_results: int = 3
+
+
+class DeleteDocumentRequest(BaseModel):
+    document_id: str

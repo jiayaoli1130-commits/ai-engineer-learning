@@ -114,6 +114,60 @@ def test_knowledge_search_endpoint(monkeypatch):
     assert response.json()["data"]["results"][0]["content"] == "matched"
 
 
+def test_knowledge_documents_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        api_server,
+        "list_documents",
+        lambda: [
+            {
+                "document_id": "doc123",
+                "filename": "company_rules.md",
+                "source": "docs/company_rules.md",
+                "total_chunks": 3,
+            }
+        ],
+    )
+
+    response = client.get("/knowledge/documents")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "code": 200,
+        "msg": "success",
+        "data": [
+            {
+                "document_id": "doc123",
+                "filename": "company_rules.md",
+                "source": "docs/company_rules.md",
+                "total_chunks": 3,
+            }
+        ],
+    }
+
+
+def test_knowledge_delete_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        api_server,
+        "delete_document",
+        lambda document_id: {
+            "success": True,
+            "message": "文档已删除",
+            "document_id": document_id,
+            "deleted_chunks": 2,
+        },
+    )
+
+    response = client.post("/knowledge/delete", json={"document_id": "doc123"})
+
+    assert response.status_code == 200
+    assert response.json()["data"] == {
+        "success": True,
+        "message": "文档已删除",
+        "document_id": "doc123",
+        "deleted_chunks": 2,
+    }
+
+
 def test_knowledge_reset_endpoint(monkeypatch):
     monkeypatch.setattr(
         api_server,

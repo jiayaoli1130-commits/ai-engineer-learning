@@ -156,19 +156,30 @@ def ingest_document(file_path: str) -> Dict[str, Any]:
     if not chunks:
         raise ValueError("文档内容为空，无法入库")
 
-    doc_hash = build_doc_hash(file_path)
+    document_id = build_doc_hash(file_path)
+    old_ids = []
+    for where in ({"document_id": document_id}, {"source": str(path)}):
+        old_items = collection.get(where=where)
+        for old_id in old_items.get("ids", []):
+            if old_id not in old_ids:
+                old_ids.append(old_id)
+
+    if old_ids:
+        collection.delete(ids=old_ids)
+
     ids = []
     documents = []
     metadatas = []
 
     for index, chunk in enumerate(chunks):
         chunk_hash = hashlib.md5(chunk.encode("utf-8")).hexdigest()[:10]
-        chunk_id = f"{path.stem}_{doc_hash}_{index}_{chunk_hash}"
+        chunk_id = f"{path.stem}_{document_id}_{index}_{chunk_hash}"
 
         ids.append(chunk_id)
         documents.append(chunk)
         metadatas.append(
             {
+                "document_id": document_id,
                 "source": str(path),
                 "filename": path.name,
                 "chunk_index": index,
@@ -184,9 +195,58 @@ def ingest_document(file_path: str) -> Dict[str, Any]:
 
     return {
         "success": True,
+        "document_id": document_id,
         "file": str(path),
         "chunks": len(chunks),
+        "deleted_old_chunks": len(old_ids),
         "collection": COLLECTION_NAME,
+    }
+
+
+def list_documents() -> List[Dict[str, Any]]:
+    items = collection.get(include=["metadatas"])
+    docs: Dict[str, Dict[str, Any]] = {}
+
+    for metadata in items.get("metadatas", []):
+        if not metadata:
+            continue
+
+        document_id = metadata.get("document_id")
+        filename = metadata.get("filename")
+        source = metadata.get("source")
+        total_chunks = metadata.get("total_chunks")
+
+        if not document_id:
+            continue
+
+        docs[document_id] = {
+            "document_id": document_id,
+            "filename": filename,
+            "source": source,
+            "total_chunks": total_chunks,
+        }
+
+    return list(docs.values())
+
+
+def delete_document(document_id: str) -> Dict[str, Any]:
+    items = collection.get(where={"document_id": document_id})
+    ids = items.get("ids", [])
+
+    if not ids:
+        return {
+            "success": False,
+            "message": "未找到该文档",
+            "document_id": document_id,
+        }
+
+    collection.delete(ids=ids)
+
+    return {
+        "success": True,
+        "message": "文档已删除",
+        "document_id": document_id,
+        "deleted_chunks": len(ids),
     }
 
 

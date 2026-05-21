@@ -7,9 +7,16 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.agent.agent_core import run_agent
-from app.rag.rag_store import ingest_document, reset_collection, search_knowledge
+from app.rag.rag_store import (
+    delete_document,
+    ingest_document,
+    list_documents,
+    reset_collection,
+    search_knowledge,
+)
 from app.schemas.request_response import (
     ChatRequest,
+    DeleteDocumentRequest,
     IngestRequest,
     ResultWrapper,
     SearchRequest,
@@ -116,6 +123,34 @@ def knowledge_search(request: SearchRequest) -> ResultWrapper:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Knowledge search failed: {exc}") from exc
+
+    return ResultWrapper(
+        code=200,
+        msg="success",
+        data=result,
+    )
+
+
+@app.get("/knowledge/documents", response_model=ResultWrapper)
+def get_documents() -> ResultWrapper:
+    try:
+        documents = list_documents()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"List documents failed: {exc}") from exc
+
+    return ResultWrapper(
+        code=200,
+        msg="success",
+        data=documents,
+    )
+
+
+@app.post("/knowledge/delete", response_model=ResultWrapper)
+def delete_knowledge_document(request: DeleteDocumentRequest) -> ResultWrapper:
+    try:
+        result = delete_document(request.document_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Delete document failed: {exc}") from exc
 
     return ResultWrapper(
         code=200,
