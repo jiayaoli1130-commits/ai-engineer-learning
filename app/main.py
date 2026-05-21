@@ -1,5 +1,8 @@
+import shutil
+from pathlib import Path
+
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -17,6 +20,8 @@ load_dotenv()
 
 HOST = "127.0.0.1"
 PORT = 8000
+UPLOAD_DIR = Path("./uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(
     title="AI Agent RAG Demo",
@@ -63,6 +68,44 @@ def knowledge_ingest(request: IngestRequest) -> ResultWrapper:
         msg="success",
         data=result,
     )
+
+
+@app.post("/knowledge/upload", response_model=ResultWrapper)
+def upload_knowledge_file(file: UploadFile = File(...)) -> ResultWrapper:
+    try:
+        original_filename = file.filename or "uploaded_file"
+        filename = Path(original_filename).name
+        suffix = Path(filename).suffix.lower()
+
+        if suffix not in [".txt", ".md", ".pdf"]:
+            return ResultWrapper(
+                code=400,
+                msg=f"暂不支持的文件类型: {suffix}",
+                data=None,
+            )
+
+        save_path = UPLOAD_DIR / filename
+
+        with save_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        ingest_result = ingest_document(str(save_path))
+
+        return ResultWrapper(
+            code=200,
+            msg="upload and ingest success",
+            data={
+                "filename": filename,
+                "saved_path": str(save_path),
+                "ingest_result": ingest_result,
+            },
+        )
+    except Exception as exc:
+        return ResultWrapper(
+            code=500,
+            msg=f"upload failed: {exc}",
+            data=None,
+        )
 
 
 @app.post("/knowledge/search", response_model=ResultWrapper)

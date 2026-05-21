@@ -77,6 +77,9 @@
     <input id="filePath" value="./docs/company_rules.md" />
     <button onclick="ingestKnowledge()">入库文档</button>
     <button onclick="resetKnowledge()">重置知识库</button>
+    <h3>上传文件入库</h3>
+    <input id="uploadFile" type="file" accept=".txt,.md,.pdf" />
+    <button onclick="uploadKnowledgeFile()">上传并入库</button>
     <div id="manageOutput" class="output">管理结果会显示在这里。</div>
   </section>
 
@@ -180,6 +183,39 @@
           output.textContent = JSON.stringify(result.data, null, 2);
         } else {
           output.textContent = "入库失败：" + result.msg;
+        }
+      } catch (error) {
+        output.textContent = "请求出错：" + error.message;
+      }
+    }
+
+    async function uploadKnowledgeFile() {
+      const fileInput = document.getElementById("uploadFile");
+      const output = document.getElementById("manageOutput");
+
+      if (!fileInput.files.length) {
+        output.textContent = "请选择要上传的文件。";
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append("file", file);
+
+      output.textContent = "正在上传并入库...";
+
+      try {
+        const response = await fetch(`${API_BASE}/knowledge/upload`, {
+          method: "POST",
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.code === 200) {
+          output.textContent = JSON.stringify(result.data, null, 2);
+        } else {
+          output.textContent = "上传失败：" + result.msg;
         }
       } catch (error) {
         output.textContent = "请求出错：" + error.message;

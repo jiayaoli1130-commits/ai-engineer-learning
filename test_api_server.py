@@ -40,6 +40,61 @@ def test_knowledge_ingest_endpoint(monkeypatch):
     assert response.json()["data"]["file"] == "./docs/company_rules.md"
 
 
+def test_knowledge_upload_endpoint_saves_and_ingests_file(monkeypatch, tmp_path):
+    monkeypatch.setattr(api_server, "UPLOAD_DIR", tmp_path)
+    monkeypatch.setattr(
+        api_server,
+        "ingest_document",
+        lambda file_path: {
+            "success": True,
+            "file": file_path,
+            "chunks": 1,
+            "collection": "company_rules",
+        },
+    )
+
+    response = client.post(
+        "/knowledge/upload",
+        files={"file": ("upload.md", b"# Upload\n\nHello", "text/markdown")},
+    )
+
+    saved_path = tmp_path / "upload.md"
+
+    assert response.status_code == 200
+    assert saved_path.read_text(encoding="utf-8") == "# Upload\n\nHello"
+    assert response.json() == {
+        "code": 200,
+        "msg": "upload and ingest success",
+        "data": {
+            "filename": "upload.md",
+            "saved_path": str(saved_path),
+            "ingest_result": {
+                "success": True,
+                "file": str(saved_path),
+                "chunks": 1,
+                "collection": "company_rules",
+            },
+        },
+    }
+
+
+def test_knowledge_upload_endpoint_rejects_unsupported_file_type(tmp_path, monkeypatch):
+    monkeypatch.setattr(api_server, "UPLOAD_DIR", tmp_path)
+
+    response = client.post(
+        "/knowledge/upload",
+        files={"file": ("notes.docx", b"not supported", "application/octet-stream")},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "code": 400,
+        "msg": "暂不支持的文件类型: .docx",
+        "data": None,
+    }
+    assert not (tmp_path / "notes.docx").exists()
+
+
 def test_knowledge_search_endpoint(monkeypatch):
     monkeypatch.setattr(
         api_server,
