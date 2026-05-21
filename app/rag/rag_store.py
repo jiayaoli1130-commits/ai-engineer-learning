@@ -99,50 +99,47 @@ def split_large_unit(text: str, max_chars: int, overlap_chars: int) -> List[str]
 
 def chunk_text(
     text: str,
-    max_chars: int = 900,
-    overlap_chars: int = 150,
+    max_chars: int = 600,
+    overlap_chars: int = 80,
 ) -> List[str]:
+    """
+    更适合 Markdown 制度文档的切块方式。
+
+    优先按 Markdown 二级标题 ## 切分。
+    如果某个章节仍然太长，再继续细切。
+    """
     text = normalize_text(text)
-    if not text:
-        return []
+    sections = re.split(r"(?=^##\s+)", text, flags=re.MULTILINE)
+    sections = [s.strip() for s in sections if s.strip()]
+    if any(re.match(r"^##\s+", section) for section in sections):
+        sections = [s for s in sections if re.match(r"^##\s+", s)]
 
-    raw_paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-    units: List[str] = []
+    final_chunks = []
 
-    for paragraph in raw_paragraphs:
-        if len(paragraph) <= max_chars:
-            units.append(paragraph)
+    for section in sections:
+        if len(section) <= max_chars:
+            final_chunks.append(section)
             continue
 
-        sentences = re.split(r"(?<=[。！？!?；;.])", paragraph)
-        sentences = [s.strip() for s in sentences if s.strip()]
+        paragraphs = [p.strip() for p in section.split("\n\n") if p.strip()]
+        current = ""
 
-        for sentence in sentences:
-            if len(sentence) <= max_chars:
-                units.append(sentence)
+        for paragraph in paragraphs:
+            if not current:
+                current = paragraph
+                continue
+
+            if len(current) + len(paragraph) + 2 <= max_chars:
+                current += "\n\n" + paragraph
             else:
-                units.extend(split_large_unit(sentence, max_chars, overlap_chars))
+                final_chunks.append(current.strip())
+                overlap = current[-overlap_chars:] if overlap_chars > 0 else ""
+                current = f"{overlap}\n\n{paragraph}".strip()
 
-    chunks: List[str] = []
-    current = ""
+        if current:
+            final_chunks.append(current.strip())
 
-    for unit in units:
-        if not current:
-            current = unit
-            continue
-
-        if len(current) + len(unit) + 2 <= max_chars:
-            current += "\n\n" + unit
-            continue
-
-        chunks.append(current.strip())
-        overlap = current[-overlap_chars:] if overlap_chars > 0 else ""
-        current = f"{overlap}\n\n{unit}".strip()
-
-    if current:
-        chunks.append(current.strip())
-
-    return chunks
+    return final_chunks
 
 
 def build_doc_hash(file_path: str) -> str:
