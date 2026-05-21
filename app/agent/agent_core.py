@@ -3,7 +3,7 @@ import json
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from agent_tools import TOOL_DISPATCH, tools_list
+from app.agent.agent_tools import TOOL_DISPATCH, tools_list
 
 
 load_dotenv()

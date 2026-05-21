@@ -5,9 +5,9 @@ import chromadb
 # 1. 初始化本地向量数据库
 # 它会在你的当前目录下生成一个名为 "my_vector_db" 的文件夹来持久化保存数据
 PROJECT_ROOT = Path(__file__).resolve().parent
-DB_PATH = PROJECT_ROOT / "data" / "vector_db" / "my_vector_db"
+DB_PATH = PROJECT_ROOT / "my_vector_db"
 
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+DB_PATH.mkdir(parents=True, exist_ok=True)
 
 client = chromadb.PersistentClient(path=str(DB_PATH))
 

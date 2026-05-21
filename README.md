@@ -13,7 +13,7 @@
 ## 启动方式
 
 ```bash
-uvicorn api_server:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
 
 启动后默认地址为 [http://127.0.0.1:8000](http://127.0.0.1:8000)，接口文档可在 [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) 查看。

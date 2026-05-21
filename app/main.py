@@ -1,13 +1,16 @@
-from typing import Any
-
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import uvicorn
 
-from agent_core import run_agent
-from rag_store import ingest_document, reset_collection, search_knowledge
+from app.agent.agent_core import run_agent
+from app.rag.rag_store import ingest_document, reset_collection, search_knowledge
+from app.schemas.request_response import (
+    ChatRequest,
+    IngestRequest,
+    ResultWrapper,
+    SearchRequest,
+)
 
 
 load_dotenv()
@@ -30,25 +33,7 @@ app.add_middleware(
 )
 
 
-class ChatRequest(BaseModel):
-    message: str
-
-
-class ResultWrapper(BaseModel):
-    code: int
-    msg: str
-    data: Any
-
-
-class IngestRequest(BaseModel):
-    file_path: str
-
-
-class SearchRequest(BaseModel):
-    query: str
-    n_results: int = 3
-
-# python.exe api_server.py 启动服务器
+# Start with: python.exe -m app.main
 
 @app.post("/chat", response_model=ResultWrapper)
 def chat(request: ChatRequest) -> ResultWrapper:
@@ -112,7 +97,7 @@ def knowledge_reset() -> ResultWrapper:
 
 if __name__ == "__main__":
     uvicorn.run(
-        "api_server:app",
+        "app.main:app",
         host=HOST,
         port=PORT,
         reload=False,

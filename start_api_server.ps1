@@ -10,4 +10,4 @@ if (-not (Test-Path $pythonExe)) {
 Set-Location $projectRoot
 
 Write-Host "Starting API server at http://127.0.0.1:8000"
-& $pythonExe "api_server.py"
+& $pythonExe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload

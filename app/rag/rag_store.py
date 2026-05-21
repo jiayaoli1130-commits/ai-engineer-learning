@@ -8,13 +8,13 @@ import chromadb
 from pypdf import PdfReader
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-DB_PATH = PROJECT_ROOT / "data" / "vector_db" / "my_vector_db"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DB_PATH = PROJECT_ROOT / "my_vector_db"
 COLLECTION_NAME = "company_rules"
 DEFAULT_DOC_PATH = PROJECT_ROOT / "docs" / "company_rules.md"
 SUPPORTED_SUFFIXES = {".txt", ".md", ".pdf"}
 
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+DB_PATH.mkdir(parents=True, exist_ok=True)
 
 client = chromadb.PersistentClient(path=str(DB_PATH))
 collection = client.get_or_create_collection(name=COLLECTION_NAME)

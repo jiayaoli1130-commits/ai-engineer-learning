@@ -1,5 +1,5 @@
 import json
-from rag_store import retrieve_knowledge
+from app.rag.rag_store import retrieve_knowledge
 
 # 模拟系统底层数据库
 mock_db = {

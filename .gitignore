@@ -8,5 +8,6 @@ node_modules/
 logs/
 outputs/
 
+my_vector_db/
 data/vector_db/my_vector_db/
 data/vector_db/vector_db_t
