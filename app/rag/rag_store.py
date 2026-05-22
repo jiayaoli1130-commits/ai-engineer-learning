@@ -13,6 +13,7 @@ DB_PATH = PROJECT_ROOT / "my_vector_db"
 COLLECTION_NAME = "company_rules"
 DEFAULT_DOC_PATH = PROJECT_ROOT / "docs" / "company_rules.md"
 SUPPORTED_SUFFIXES = {".txt", ".md", ".pdf"}
+LEXICAL_RESCUE_SCORE = 10.0
 
 DB_PATH.mkdir(parents=True, exist_ok=True)
 
@@ -348,6 +349,7 @@ def search_knowledge(
     )
 
     candidates: Dict[str, Dict[str, Any]] = {}
+    distance_filtered_candidates: Dict[str, Dict[str, Any]] = {}
     ids = vector_results.get("ids", [[]])[0]
     documents = vector_results.get("documents", [[]])[0]
     metadatas = vector_results.get("metadatas", [[]])[0]
@@ -357,6 +359,14 @@ def search_knowledge(
         zip(ids, documents, metadatas, distances)
     ):
         if max_distance is not None and distance is not None and distance > max_distance:
+            distance_filtered_candidates[item_id] = build_search_item(
+                item_id=item_id,
+                content=content,
+                metadata=metadata,
+                distance=distance,
+                query=query,
+                vector_rank=rank,
+            )
             continue
 
         candidates[item_id] = build_search_item(
@@ -374,14 +384,19 @@ def search_knowledge(
     stored_metadatas = stored_items.get("metadatas", [])
 
     for item_id, content, metadata in zip(stored_ids, stored_documents, stored_metadatas):
-        if max_distance is not None and item_id not in candidates:
-            continue
-
         lexical_score = text_relevance_score(query, content)
         if lexical_score <= 0:
             continue
 
         if item_id in candidates:
+            candidates[item_id]["_lexical_score"] = lexical_score
+            continue
+
+        if max_distance is not None and lexical_score < LEXICAL_RESCUE_SCORE:
+            continue
+
+        if item_id in distance_filtered_candidates:
+            candidates[item_id] = distance_filtered_candidates[item_id]
             candidates[item_id]["_lexical_score"] = lexical_score
             continue
 

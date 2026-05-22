@@ -136,8 +136,17 @@ class DistanceSearchCollection:
 def test_search_knowledge_filters_by_max_distance(monkeypatch):
     monkeypatch.setattr(rag_store, "collection", DistanceSearchCollection())
 
-    result = rag_store.search_knowledge("content", n_results=3, max_distance=1.0)
+    result = rag_store.search_knowledge("near", n_results=3, max_distance=1.0)
 
     assert result["max_distance"] == 1.0
     assert [item["metadata"]["filename"] for item in result["results"]] == ["near.md"]
     assert result["results"][0]["distance"] == 0.4
+
+
+def test_search_knowledge_keeps_strong_lexical_match_when_distance_is_high(monkeypatch):
+    monkeypatch.setattr(rag_store, "collection", HybridSearchCollection())
+
+    result = rag_store.search_knowledge("特殊情况", n_results=1, max_distance=1.5)
+
+    assert result["results"][0]["metadata"]["filename"] == "test_company_policy.md"
+    assert "特殊情况处理" in result["results"][0]["content"]
