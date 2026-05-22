@@ -2,7 +2,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import chromadb
 from pypdf import PdfReader
@@ -250,6 +250,74 @@ def delete_document(document_id: str) -> Dict[str, Any]:
     }
 
 
+def normalize_for_match(text: str) -> str:
+    return re.sub(r"[\W_]+", "", text.lower(), flags=re.UNICODE)
+
+
+def char_ngrams(text: str, size: int) -> set[str]:
+    if len(text) < size:
+        return {text} if text else set()
+
+    return {text[index : index + size] for index in range(len(text) - size + 1)}
+
+
+def text_relevance_score(query: str, content: str) -> float:
+    normalized_query = normalize_for_match(query)
+    normalized_content = normalize_for_match(content)
+
+    if not normalized_query or not normalized_content:
+        return 0.0
+
+    if normalized_query in normalized_content:
+        return 10.0 + len(normalized_query) / max(len(normalized_content), 1)
+
+    query_bigrams = char_ngrams(normalized_query, 2)
+    query_trigrams = char_ngrams(normalized_query, 3)
+    content_bigrams = char_ngrams(normalized_content, 2)
+    content_trigrams = char_ngrams(normalized_content, 3)
+
+    bigram_score = (
+        len(query_bigrams & content_bigrams) / len(query_bigrams)
+        if query_bigrams
+        else 0.0
+    )
+    trigram_score = (
+        len(query_trigrams & content_trigrams) / len(query_trigrams)
+        if query_trigrams
+        else 0.0
+    )
+
+    return bigram_score + (trigram_score * 2)
+
+
+def build_search_item(
+    item_id: str,
+    content: str,
+    metadata: Optional[Dict[str, Any]],
+    distance: Optional[float],
+    query: str,
+    vector_rank: Optional[int] = None,
+) -> Dict[str, Any]:
+    lexical_score = text_relevance_score(query, content)
+    vector_score = 0.0 if distance is None else 1 / (1 + max(distance, 0))
+
+    return {
+        "id": item_id,
+        "content": content,
+        "metadata": metadata or {},
+        "distance": distance,
+        "_lexical_score": lexical_score,
+        "_vector_score": vector_score,
+        "_vector_rank": vector_rank,
+    }
+
+
+def combine_search_scores(item: Dict[str, Any]) -> float:
+    vector_rank = item.get("_vector_rank")
+    rank_bonus = 0.0 if vector_rank is None else 1 / (vector_rank + 1)
+    return (item["_lexical_score"] * 2.5) + item["_vector_score"] + rank_bonus
+
+
 def search_knowledge(query: str, n_results: int = 3) -> Dict[str, Any]:
     if not query.strip():
         raise ValueError("query 不能为空")
@@ -265,23 +333,67 @@ def search_knowledge(query: str, n_results: int = 3) -> Dict[str, Any]:
             "message": "知识库为空，请先执行文档入库。",
         }
 
-    results = collection.query(
+    vector_limit = min(max(n_results * 4, n_results), count)
+    vector_results = collection.query(
         query_texts=[query],
-        n_results=min(n_results, count),
+        n_results=vector_limit,
         include=["documents", "metadatas", "distances"],
     )
 
-    items = []
-    documents = results.get("documents", [[]])[0]
-    metadatas = results.get("metadatas", [[]])[0]
-    distances = results.get("distances", [[]])[0]
+    candidates: Dict[str, Dict[str, Any]] = {}
+    ids = vector_results.get("ids", [[]])[0]
+    documents = vector_results.get("documents", [[]])[0]
+    metadatas = vector_results.get("metadatas", [[]])[0]
+    distances = vector_results.get("distances", [[]])[0]
 
-    for content, metadata, distance in zip(documents, metadatas, distances):
+    for rank, (item_id, content, metadata, distance) in enumerate(
+        zip(ids, documents, metadatas, distances)
+    ):
+        candidates[item_id] = build_search_item(
+            item_id=item_id,
+            content=content,
+            metadata=metadata,
+            distance=distance,
+            query=query,
+            vector_rank=rank,
+        )
+
+    stored_items = collection.get(include=["documents", "metadatas"])
+    stored_ids = stored_items.get("ids", [])
+    stored_documents = stored_items.get("documents", [])
+    stored_metadatas = stored_items.get("metadatas", [])
+
+    for item_id, content, metadata in zip(stored_ids, stored_documents, stored_metadatas):
+        lexical_score = text_relevance_score(query, content)
+        if lexical_score <= 0:
+            continue
+
+        if item_id in candidates:
+            candidates[item_id]["_lexical_score"] = lexical_score
+            continue
+
+        candidates[item_id] = build_search_item(
+            item_id=item_id,
+            content=content,
+            metadata=metadata,
+            distance=None,
+            query=query,
+        )
+
+    ranked_items = sorted(
+        candidates.values(),
+        key=combine_search_scores,
+        reverse=True,
+    )
+    items = []
+
+    for item in ranked_items[:n_results]:
         items.append(
             {
-                "content": content,
-                "metadata": metadata,
-                "distance": distance,
+                "content": item["content"],
+                "metadata": item["metadata"],
+                "distance": item["distance"],
+                "score": round(combine_search_scores(item), 6),
             }
         )
 

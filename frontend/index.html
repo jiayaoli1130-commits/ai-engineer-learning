@@ -54,33 +54,25 @@
       line-height: 1.6;
     }
 
-    .document-list {
+    .document-card-list {
       margin-top: 16px;
-      padding: 0;
-      list-style: none;
     }
 
-    .document-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+    .document-card {
+      background: white;
       padding: 12px;
-      border-bottom: 1px solid #e5e7eb;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
     }
 
-    .document-meta {
-      min-width: 0;
-    }
-
-    .document-name {
-      font-weight: 600;
-    }
-
-    .document-id {
-      color: #6b7280;
-      font-size: 13px;
+    .document-card div {
+      margin-bottom: 4px;
       word-break: break-all;
+    }
+
+    .document-card button {
+      margin-top: 8px;
     }
   </style>
 </head>
@@ -109,12 +101,13 @@
     <h3>上传文件入库</h3>
     <input id="uploadFile" type="file" accept=".txt,.md,.pdf" />
     <button onclick="uploadKnowledgeFile()">上传并入库</button>
-    <h3>已入库文档</h3>
-    <button onclick="listKnowledgeDocuments()">刷新文档列表</button>
-    <input id="deleteDocumentId" placeholder="输入 document_id 删除指定文档" />
-    <button onclick="deleteKnowledgeDocument()">删除文档</button>
-    <ul id="documentList" class="document-list"></ul>
     <div id="manageOutput" class="output">管理结果会显示在这里。</div>
+  </section>
+
+  <section>
+    <h2>四、已入库文档</h2>
+    <button onclick="loadDocuments()">刷新文档列表</button>
+    <div id="documentsOutput" class="output document-card-list">文档列表会显示在这里。</div>
   </section>
 
   <script>
@@ -215,7 +208,7 @@
 
         if (result.code === 200) {
           output.textContent = JSON.stringify(result.data, null, 2);
-          await listKnowledgeDocuments();
+          await loadDocuments();
         } else {
           output.textContent = "入库失败：" + result.msg;
         }
@@ -249,7 +242,7 @@
 
         if (result.code === 200) {
           output.textContent = JSON.stringify(result.data, null, 2);
-          await listKnowledgeDocuments();
+          await loadDocuments();
         } else {
           output.textContent = "上传失败：" + result.msg;
         }
@@ -278,6 +271,7 @@
 
         if (result.code === 200) {
           output.textContent = JSON.stringify(result.data, null, 2);
+          await loadDocuments();
         } else {
           output.textContent = "重置失败：" + result.msg;
         }
@@ -286,52 +280,54 @@
       }
     }
 
-    async function listKnowledgeDocuments() {
-      const output = document.getElementById("manageOutput");
-      const list = document.getElementById("documentList");
+    async function loadDocuments() {
+      const output = document.getElementById("documentsOutput");
+
+      output.textContent = "正在加载文档列表...";
 
       try {
         const response = await fetch(`${API_BASE}/knowledge/documents`);
         const result = await response.json();
 
         if (result.code !== 200) {
-          output.textContent = "获取文档列表失败：" + result.msg;
+          output.textContent = "加载失败：" + result.msg;
           return;
         }
 
         const documents = result.data || [];
 
         if (!documents.length) {
-          list.innerHTML = "";
-          output.textContent = "当前没有已入库文档。";
+          output.textContent = "当前知识库中没有文档。";
           return;
         }
 
-        list.innerHTML = documents.map((document) => `
-          <li class="document-item">
-            <div class="document-meta">
-              <div class="document-name">${escapeHtml(document.filename || "未命名文档")}</div>
-              <div class="document-id">${escapeHtml(document.document_id || "")}</div>
-              <div class="document-id">${escapeHtml(document.source || "")}</div>
-              <div class="document-id">chunks: ${escapeHtml(String(document.total_chunks || 0))}</div>
-            </div>
-            <button onclick="fillDeleteDocumentId('${escapeAttribute(document.document_id || "")}')">选择删除</button>
-          </li>
-        `).join("");
+        output.innerHTML = "";
 
-        output.textContent = JSON.stringify(documents, null, 2);
+        documents.forEach((doc) => {
+          const card = document.createElement("div");
+          card.className = "document-card";
+
+          card.innerHTML = `
+            <div><strong>文件名：</strong>${escapeHtml(doc.filename || "未命名文档")}</div>
+            <div><strong>document_id：</strong>${escapeHtml(doc.document_id || "")}</div>
+            <div><strong>路径：</strong>${escapeHtml(doc.source || "")}</div>
+            <div><strong>chunk 数量：</strong>${escapeHtml(String(doc.total_chunks || 0))}</div>
+          `;
+
+          const deleteButton = document.createElement("button");
+          deleteButton.textContent = "删除该文档";
+          deleteButton.addEventListener("click", () => deleteDocument(doc.document_id || ""));
+          card.appendChild(deleteButton);
+          output.appendChild(card);
+        });
       } catch (error) {
         output.textContent = "请求出错：" + error.message;
       }
     }
 
-    async function deleteKnowledgeDocument() {
-      const documentIdInput = document.getElementById("deleteDocumentId");
-      const documentId = documentIdInput.value.trim();
-      const output = document.getElementById("manageOutput");
-
+    async function deleteDocument(documentId) {
       if (!documentId) {
-        output.textContent = "请输入要删除的 document_id。";
+        document.getElementById("documentsOutput").textContent = "缺少 document_id，无法删除。";
         return;
       }
 
@@ -340,6 +336,8 @@
       if (!confirmed) {
         return;
       }
+
+      const output = document.getElementById("documentsOutput");
 
       try {
         const response = await fetch(`${API_BASE}/knowledge/delete`, {
@@ -355,9 +353,8 @@
         const result = await response.json();
 
         if (result.code === 200) {
-          output.textContent = JSON.stringify(result.data, null, 2);
-          documentIdInput.value = "";
-          await listKnowledgeDocuments();
+          alert("删除成功");
+          await loadDocuments();
         } else {
           output.textContent = "删除失败：" + result.msg;
         }
@@ -366,21 +363,17 @@
       }
     }
 
-    function fillDeleteDocumentId(documentId) {
-      document.getElementById("deleteDocumentId").value = documentId;
+    async function listKnowledgeDocuments() {
+      await loadDocuments();
     }
 
     function escapeHtml(value) {
-      return value
+      return String(value)
         .replaceAll("&", "&amp;")
         .replaceAll("<", "&lt;")
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
-    }
-
-    function escapeAttribute(value) {
-      return escapeHtml(value).replaceAll("`", "&#096;");
     }
   </script>
 </body>

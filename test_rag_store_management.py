@@ -73,3 +73,41 @@ def test_list_and_delete_documents_use_document_id(monkeypatch):
     ]
     assert delete_result["success"] is True
     assert delete_result["deleted_chunks"] == 2
+
+
+class HybridSearchCollection:
+    def count(self):
+        return 2
+
+    def query(self, query_texts, n_results, include):
+        return {
+            "ids": [["wrong_1"]],
+            "documents": [["## 交通补助\n\n员工每月交通补助上限为 800 元。"]],
+            "metadatas": [[{"filename": "company_rules.md"}]],
+            "distances": [[0.2]],
+        }
+
+    def get(self, where=None, include=None):
+        return {
+            "ids": ["wrong_1", "right_1"],
+            "documents": [
+                "## 交通补助\n\n员工每月交通补助上限为 800 元。",
+                "## 7. 特殊情况处理\n\n如果员工遇到制度中未明确规定的特殊情况，应先咨询直属主管或财务部门。",
+            ],
+            "metadatas": [
+                {"filename": "company_rules.md"},
+                {"filename": "test_company_policy.md"},
+            ],
+        }
+
+
+def test_search_knowledge_reranks_exact_chinese_match(monkeypatch):
+    monkeypatch.setattr(rag_store, "collection", HybridSearchCollection())
+
+    result = rag_store.search_knowledge(
+        "如果员工遇到制度中未明确规定的特殊情况，应先咨询直属主管或财务部门。",
+        n_results=1,
+    )
+
+    assert result["results"][0]["metadata"]["filename"] == "test_company_policy.md"
+    assert "特殊情况处理" in result["results"][0]["content"]
