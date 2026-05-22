@@ -6,4 +6,4 @@ openai==2.36.0
 chromadb==1.5.9
 pypdf==6.11.0
 httpx==0.28.1
-pytest
+pytest==9.0.3

@@ -99,18 +99,20 @@ def test_knowledge_search_endpoint(monkeypatch):
     monkeypatch.setattr(
         api_server,
         "search_knowledge",
-        lambda query, n_results: {
+        lambda query, n_results, max_distance=None: {
             "query": query,
+            "max_distance": max_distance,
             "results": [{"content": "matched"}],
         },
     )
 
     response = client.post(
         "/knowledge/search",
-        json={"query": "人体工学椅报销", "n_results": 1},
+        json={"query": "人体工学椅报销", "n_results": 1, "max_distance": 0.8},
     )
 
     assert response.status_code == 200
+    assert response.json()["data"]["max_distance"] == 0.8
     assert response.json()["data"]["results"][0]["content"] == "matched"
 
 

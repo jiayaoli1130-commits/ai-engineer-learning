@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <title>RAG AI Agent</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -50,8 +52,42 @@
       background: #f1f3f5;
       border-radius: 8px;
       min-height: 80px;
-      white-space: pre-wrap;
       line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .plain-text {
+      white-space: pre-wrap;
+    }
+
+    .markdown-body p:first-child {
+      margin-top: 0;
+    }
+
+    .markdown-body p:last-child,
+    .markdown-body ul:last-child,
+    .markdown-body ol:last-child {
+      margin-bottom: 0;
+    }
+
+    .markdown-body code {
+      background: #e9ecef;
+      border-radius: 4px;
+      padding: 2px 4px;
+    }
+
+    .search-result {
+      background: white;
+      padding: 12px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .search-result-meta {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 8px;
     }
 
     .document-card-list {
@@ -89,6 +125,7 @@
   <section>
     <h2>二、知识库检索</h2>
     <input id="searchQuery" placeholder="例如：人体工学椅报销" />
+    <input id="maxDistance" type="number" min="0" step="0.01" placeholder="可选：distance 阈值，例如 1.2" />
     <button onclick="searchKnowledge()">检索知识库</button>
     <div id="searchOutput" class="output">检索结果会显示在这里。</div>
   </section>
@@ -113,16 +150,36 @@
   <script>
     const API_BASE = "http://127.0.0.1:8000";
 
+    function setPlainText(element, text) {
+      element.classList.remove("markdown-body");
+      element.classList.add("plain-text");
+      element.textContent = text;
+    }
+
+    function markdownToHtml(markdown) {
+      if (!window.marked || !window.DOMPurify) {
+        return escapeHtml(markdown);
+      }
+
+      return DOMPurify.sanitize(marked.parse(String(markdown || "")));
+    }
+
+    function renderMarkdown(element, markdown) {
+      element.classList.remove("plain-text");
+      element.classList.add("markdown-body");
+      element.innerHTML = markdownToHtml(markdown);
+    }
+
     async function sendChat() {
       const message = document.getElementById("chatMessage").value.trim();
       const output = document.getElementById("chatOutput");
 
       if (!message) {
-        output.textContent = "请输入问题。";
+        setPlainText(output, "请输入问题。");
         return;
       }
 
-      output.textContent = "AI 正在思考中...";
+      setPlainText(output, "AI 正在思考中...");
 
       try {
         const response = await fetch(`${API_BASE}/chat`, {
@@ -138,25 +195,41 @@
         const result = await response.json();
 
         if (result.code === 200) {
-          output.textContent = result.data;
+          renderMarkdown(output, result.data);
         } else {
-          output.textContent = "请求失败：" + result.msg;
+          setPlainText(output, "请求失败：" + result.msg);
         }
       } catch (error) {
-        output.textContent = "请求出错：" + error.message;
+        setPlainText(output, "请求出错：" + error.message);
       }
     }
 
     async function searchKnowledge() {
       const query = document.getElementById("searchQuery").value.trim();
+      const maxDistanceValue = document.getElementById("maxDistance").value.trim();
       const output = document.getElementById("searchOutput");
 
       if (!query) {
-        output.textContent = "请输入检索关键词。";
+        setPlainText(output, "请输入检索关键词。");
         return;
       }
 
-      output.textContent = "正在检索知识库...";
+      const payload = {
+        query: query,
+        n_results: 3
+      };
+
+      if (maxDistanceValue) {
+        const maxDistance = Number(maxDistanceValue);
+        if (Number.isNaN(maxDistance) || maxDistance < 0) {
+          setPlainText(output, "distance 阈值必须是大于等于 0 的数字。");
+          return;
+        }
+
+        payload.max_distance = maxDistance;
+      }
+
+      setPlainText(output, "正在检索知识库...");
 
       try {
         const response = await fetch(`${API_BASE}/knowledge/search`, {
@@ -164,22 +237,49 @@
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({
-            query: query,
-            n_results: 3
-          })
+          body: JSON.stringify(payload)
         });
 
         const result = await response.json();
 
         if (result.code === 200) {
-          output.textContent = JSON.stringify(result.data, null, 2);
+          renderSearchResults(output, result.data);
         } else {
-          output.textContent = "检索失败：" + result.msg;
+          setPlainText(output, "检索失败：" + result.msg);
         }
       } catch (error) {
-        output.textContent = "请求出错：" + error.message;
+        setPlainText(output, "请求出错：" + error.message);
       }
+    }
+
+    function renderSearchResults(output, data) {
+      const results = data.results || [];
+
+      output.classList.remove("plain-text", "markdown-body");
+      output.innerHTML = "";
+
+      if (!results.length) {
+        setPlainText(output, "没有命中符合条件的结果。");
+        return;
+      }
+
+      results.forEach((item, index) => {
+        const card = document.createElement("div");
+        card.className = "search-result";
+
+        const metadata = item.metadata || {};
+        const meta = document.createElement("div");
+        meta.className = "search-result-meta";
+        meta.textContent = `#${index + 1} ${metadata.filename || metadata.source || "知识库片段"} · distance: ${item.distance ?? "N/A"} · score: ${item.score ?? "N/A"}`;
+
+        const content = document.createElement("div");
+        content.className = "markdown-body";
+        content.innerHTML = markdownToHtml(item.content || "");
+
+        card.appendChild(meta);
+        card.appendChild(content);
+        output.appendChild(card);
+      });
     }
 
     async function ingestKnowledge() {
@@ -187,11 +287,11 @@
       const output = document.getElementById("manageOutput");
 
       if (!filePath) {
-        output.textContent = "请输入文件路径。";
+        setPlainText(output, "请输入文件路径。");
         return;
       }
 
-      output.textContent = "正在入库文档...";
+      setPlainText(output, "正在入库文档...");
 
       try {
         const response = await fetch(`${API_BASE}/knowledge/ingest`, {
@@ -207,13 +307,13 @@
         const result = await response.json();
 
         if (result.code === 200) {
-          output.textContent = JSON.stringify(result.data, null, 2);
+          setPlainText(output, JSON.stringify(result.data, null, 2));
           await loadDocuments();
         } else {
-          output.textContent = "入库失败：" + result.msg;
+          setPlainText(output, "入库失败：" + result.msg);
         }
       } catch (error) {
-        output.textContent = "请求出错：" + error.message;
+        setPlainText(output, "请求出错：" + error.message);
       }
     }
 
@@ -222,7 +322,7 @@
       const output = document.getElementById("manageOutput");
 
       if (!fileInput.files.length) {
-        output.textContent = "请选择要上传的文件。";
+        setPlainText(output, "请选择要上传的文件。");
         return;
       }
 
@@ -230,7 +330,7 @@
       const formData = new FormData();
       formData.append("file", file);
 
-      output.textContent = "正在上传并入库...";
+      setPlainText(output, "正在上传并入库...");
 
       try {
         const response = await fetch(`${API_BASE}/knowledge/upload`, {
@@ -241,13 +341,13 @@
         const result = await response.json();
 
         if (result.code === 200) {
-          output.textContent = JSON.stringify(result.data, null, 2);
+          setPlainText(output, JSON.stringify(result.data, null, 2));
           await loadDocuments();
         } else {
-          output.textContent = "上传失败：" + result.msg;
+          setPlainText(output, "上传失败：" + result.msg);
         }
       } catch (error) {
-        output.textContent = "请求出错：" + error.message;
+        setPlainText(output, "请求出错：" + error.message);
       }
     }
 
@@ -260,7 +360,7 @@
         return;
       }
 
-      output.textContent = "正在重置知识库...";
+      setPlainText(output, "正在重置知识库...");
 
       try {
         const response = await fetch(`${API_BASE}/knowledge/reset`, {
@@ -270,37 +370,38 @@
         const result = await response.json();
 
         if (result.code === 200) {
-          output.textContent = JSON.stringify(result.data, null, 2);
+          setPlainText(output, JSON.stringify(result.data, null, 2));
           await loadDocuments();
         } else {
-          output.textContent = "重置失败：" + result.msg;
+          setPlainText(output, "重置失败：" + result.msg);
         }
       } catch (error) {
-        output.textContent = "请求出错：" + error.message;
+        setPlainText(output, "请求出错：" + error.message);
       }
     }
 
     async function loadDocuments() {
       const output = document.getElementById("documentsOutput");
 
-      output.textContent = "正在加载文档列表...";
+      setPlainText(output, "正在加载文档列表...");
 
       try {
         const response = await fetch(`${API_BASE}/knowledge/documents`);
         const result = await response.json();
 
         if (result.code !== 200) {
-          output.textContent = "加载失败：" + result.msg;
+          setPlainText(output, "加载失败：" + result.msg);
           return;
         }
 
         const documents = result.data || [];
 
         if (!documents.length) {
-          output.textContent = "当前知识库中没有文档。";
+          setPlainText(output, "当前知识库中没有文档。");
           return;
         }
 
+        output.classList.remove("plain-text", "markdown-body");
         output.innerHTML = "";
 
         documents.forEach((doc) => {
@@ -321,13 +422,13 @@
           output.appendChild(card);
         });
       } catch (error) {
-        output.textContent = "请求出错：" + error.message;
+        setPlainText(output, "请求出错：" + error.message);
       }
     }
 
     async function deleteDocument(documentId) {
       if (!documentId) {
-        document.getElementById("documentsOutput").textContent = "缺少 document_id，无法删除。";
+        setPlainText(document.getElementById("documentsOutput"), "缺少 document_id，无法删除。");
         return;
       }
 
@@ -356,10 +457,10 @@
           alert("删除成功");
           await loadDocuments();
         } else {
-          output.textContent = "删除失败：" + result.msg;
+          setPlainText(output, "删除失败：" + result.msg);
         }
       } catch (error) {
-        output.textContent = "请求出错：" + error.message;
+        setPlainText(output, "请求出错：" + error.message);
       }
     }
 

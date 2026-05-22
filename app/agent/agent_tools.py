@@ -92,6 +92,10 @@ tools_list = [
                     "type": "integer",
                     "description": "返回的相关片段数量，默认 3",
                 },
+                "max_distance": {
+                    "type": "number",
+                    "description": "可选的向量距离上限；距离越小表示越相似，超过该值的结果会被过滤",
+                },
             },
             "required": ["query"],
         },

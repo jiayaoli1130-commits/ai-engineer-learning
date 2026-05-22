@@ -111,3 +111,33 @@ def test_search_knowledge_reranks_exact_chinese_match(monkeypatch):
 
     assert result["results"][0]["metadata"]["filename"] == "test_company_policy.md"
     assert "特殊情况处理" in result["results"][0]["content"]
+
+
+class DistanceSearchCollection:
+    def count(self):
+        return 2
+
+    def query(self, query_texts, n_results, include):
+        return {
+            "ids": [["near_1", "far_1"]],
+            "documents": [["near content", "far content"]],
+            "metadatas": [[{"filename": "near.md"}, {"filename": "far.md"}]],
+            "distances": [[0.4, 1.8]],
+        }
+
+    def get(self, where=None, include=None):
+        return {
+            "ids": ["near_1", "far_1"],
+            "documents": ["near content", "far content"],
+            "metadatas": [{"filename": "near.md"}, {"filename": "far.md"}],
+        }
+
+
+def test_search_knowledge_filters_by_max_distance(monkeypatch):
+    monkeypatch.setattr(rag_store, "collection", DistanceSearchCollection())
+
+    result = rag_store.search_knowledge("content", n_results=3, max_distance=1.0)
+
+    assert result["max_distance"] == 1.0
+    assert [item["metadata"]["filename"] for item in result["results"]] == ["near.md"]
+    assert result["results"][0]["distance"] == 0.4

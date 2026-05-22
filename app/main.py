@@ -118,7 +118,11 @@ def upload_knowledge_file(file: UploadFile = File(...)) -> ResultWrapper:
 @app.post("/knowledge/search", response_model=ResultWrapper)
 def knowledge_search(request: SearchRequest) -> ResultWrapper:
     try:
-        result = search_knowledge(query=request.query, n_results=request.n_results)
+        result = search_knowledge(
+            query=request.query,
+            n_results=request.n_results,
+            max_distance=request.max_distance,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

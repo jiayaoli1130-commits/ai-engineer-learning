@@ -318,12 +318,19 @@ def combine_search_scores(item: Dict[str, Any]) -> float:
     return (item["_lexical_score"] * 2.5) + item["_vector_score"] + rank_bonus
 
 
-def search_knowledge(query: str, n_results: int = 3) -> Dict[str, Any]:
+def search_knowledge(
+    query: str,
+    n_results: int = 3,
+    max_distance: Optional[float] = None,
+) -> Dict[str, Any]:
     if not query.strip():
         raise ValueError("query 不能为空")
 
     if n_results <= 0:
         raise ValueError("n_results 必须大于 0")
+
+    if max_distance is not None and max_distance < 0:
+        raise ValueError("max_distance 必须大于等于 0")
 
     count = collection.count()
     if count == 0:
@@ -349,6 +356,9 @@ def search_knowledge(query: str, n_results: int = 3) -> Dict[str, Any]:
     for rank, (item_id, content, metadata, distance) in enumerate(
         zip(ids, documents, metadatas, distances)
     ):
+        if max_distance is not None and distance is not None and distance > max_distance:
+            continue
+
         candidates[item_id] = build_search_item(
             item_id=item_id,
             content=content,
@@ -364,6 +374,9 @@ def search_knowledge(query: str, n_results: int = 3) -> Dict[str, Any]:
     stored_metadatas = stored_items.get("metadatas", [])
 
     for item_id, content, metadata in zip(stored_ids, stored_documents, stored_metadatas):
+        if max_distance is not None and item_id not in candidates:
+            continue
+
         lexical_score = text_relevance_score(query, content)
         if lexical_score <= 0:
             continue
@@ -399,13 +412,22 @@ def search_knowledge(query: str, n_results: int = 3) -> Dict[str, Any]:
 
     return {
         "query": query,
+        "max_distance": max_distance,
         "results": items,
     }
 
 
-def retrieve_knowledge(query: str, n_results: int = 3) -> str:
+def retrieve_knowledge(
+    query: str,
+    n_results: int = 3,
+    max_distance: Optional[float] = None,
+) -> str:
     return json.dumps(
-        search_knowledge(query=query, n_results=n_results),
+        search_knowledge(
+            query=query,
+            n_results=n_results,
+            max_distance=max_distance,
+        ),
         ensure_ascii=False,
     )
 

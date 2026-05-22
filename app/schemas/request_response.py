@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -20,6 +20,7 @@ class IngestRequest(BaseModel):
 class SearchRequest(BaseModel):
     query: str
     n_results: int = 3
+    max_distance: Optional[float] = None
 
 
 class DeleteDocumentRequest(BaseModel):
