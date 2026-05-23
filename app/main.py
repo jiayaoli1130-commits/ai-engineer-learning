@@ -51,6 +51,20 @@ app.add_middleware(
 
 # Start with: python.exe -m app.main
 
+@app.get("/")
+def root() -> dict[str, str]:
+    return {
+        "status": "ok",
+        "service": "AI Agent RAG Demo",
+        "docs": "/docs",
+    }
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @app.post("/chat", response_model=ResultWrapper)
 def chat(request: ChatRequest) -> ResultWrapper:
     try:
