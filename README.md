@@ -108,6 +108,34 @@ MODEL_NAME=deepseek-chat
 pytest
 ```
 
+## Cloud deployment notes
+
+Render backend:
+
+```bash
+pip install -r requirements.txt
+uvicorn api_server:app --host 0.0.0.0 --port $PORT
+```
+
+Set `OPENAI_API_KEY` in Render Environment Variables. Do not upload `.env`.
+
+After Render deploys successfully, open `/docs` on the Render service URL to verify the FastAPI Swagger page.
+
+Vercel frontend:
+
+- Root Directory: `frontend`
+- Framework Preset: `Other`
+- Build Command: leave empty
+- Output Directory: leave empty or `.`
+
+After the Render backend URL is available, update `frontend/index.html`:
+
+```js
+const API_BASE = "https://your-render-backend.onrender.com";
+```
+
+Note: the current demo uses local ChromaDB persistence at `./my_vector_db`. On Render, local files are not reliable long-term storage, so redeploys or restarts may require uploading documents again. A production version should use Chroma Server, Qdrant Cloud, Pinecone, Supabase pgvector, or another managed vector store.
+
 ## 目录说明
 
 - `app/main.py`：FastAPI 入口
