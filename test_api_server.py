@@ -7,7 +7,20 @@ client = TestClient(api_server.app)
 
 
 def test_chat_endpoint_wraps_agent_reply(monkeypatch):
-    monkeypatch.setattr(api_server, "run_agent", lambda message: f"echo: {message}")
+    monkeypatch.setattr(
+        api_server,
+        "run_agent",
+        lambda message, include_trace=False: {
+            "answer": f"echo: {message}",
+            "trace": [
+                {
+                    "tool_name": "get_weather",
+                    "arguments": {"location": "北京"},
+                    "result": {"condition": "晴朗"},
+                }
+            ],
+        },
+    )
 
     response = client.post("/chat", json={"message": "hello"})
 
@@ -15,7 +28,16 @@ def test_chat_endpoint_wraps_agent_reply(monkeypatch):
     assert response.json() == {
         "code": 200,
         "msg": "success",
-        "data": "echo: hello",
+        "data": {
+            "answer": "echo: hello",
+            "trace": [
+                {
+                    "tool_name": "get_weather",
+                    "arguments": {"location": "北京"},
+                    "result": {"condition": "晴朗"},
+                }
+            ],
+        },
     }
 
 

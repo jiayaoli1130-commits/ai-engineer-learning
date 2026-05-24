@@ -68,14 +68,20 @@ def health() -> dict[str, str]:
 @app.post("/chat", response_model=ResultWrapper)
 def chat(request: ChatRequest) -> ResultWrapper:
     try:
-        answer = run_agent(request.message)
+        agent_result = run_agent(request.message, include_trace=True)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Agent processing failed: {exc}") from exc
+
+    if isinstance(agent_result, str):
+        agent_result = {
+            "answer": agent_result,
+            "trace": [],
+        }
 
     return ResultWrapper(
         code=200,
         msg="success",
-        data=answer,
+        data=agent_result,
     )
 
 

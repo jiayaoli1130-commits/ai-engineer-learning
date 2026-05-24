@@ -82,12 +82,23 @@ def _append_references(answer: str, tool_results: List[str]) -> str:
     return f"{answer.rstrip()}\n\n**引用来源**\n{reference_lines}"
 
 
-def run_agent(user_message: str) -> str:
+def _parse_trace_value(raw_value: str) -> Any:
+    if not isinstance(raw_value, str):
+        return raw_value
+
+    try:
+        return json.loads(raw_value)
+    except json.JSONDecodeError:
+        return raw_value
+
+
+def run_agent(user_message: str, include_trace: bool = False) -> Any:
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_message},
     ]
     knowledge_tool_results = []
+    trace = []
 
     while True:
         response = client.chat.completions.create(
@@ -102,14 +113,24 @@ def run_agent(user_message: str) -> str:
         messages.append(ai_message.model_dump(exclude_none=True))
 
         if not ai_message.tool_calls:
-            return _append_references(ai_message.content or "", knowledge_tool_results)
+            answer = _append_references(ai_message.content or "", knowledge_tool_results)
+
+            if include_trace:
+                return {
+                    "answer": answer,
+                    "trace": trace,
+                }
+
+            return answer
 
         for tool_call in ai_message.tool_calls:
             tool_name = tool_call.function.name
             raw_arguments = tool_call.function.arguments or "{}"
+            trace_arguments = raw_arguments
 
             try:
                 arguments = json.loads(raw_arguments)
+                trace_arguments = arguments
             except json.JSONDecodeError:
                 tool_result = json.dumps(
                     {
@@ -140,6 +161,14 @@ def run_agent(user_message: str) -> str:
                             },
                             ensure_ascii=False,
                         )
+
+            trace.append(
+                {
+                    "tool_name": tool_name,
+                    "arguments": trace_arguments,
+                    "result": _parse_trace_value(tool_result),
+                }
+            )
 
             if tool_name == "retrieve_knowledge":
                 knowledge_tool_results.append(tool_result)

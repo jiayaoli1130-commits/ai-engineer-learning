@@ -110,6 +110,15 @@
     .document-card button {
       margin-top: 8px;
     }
+
+    .trace-output {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid #d7dbe0;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -195,7 +204,18 @@
         const result = await response.json();
 
         if (result.code === 200) {
-          renderMarkdown(output, result.data);
+          const data = result.data || {};
+          const answer = typeof data === "string" ? data : data.answer;
+          const trace = typeof data === "string" ? [] : (data.trace || []);
+
+          renderMarkdown(output, answer || "");
+
+          if (trace.length) {
+            const traceElement = document.createElement("div");
+            traceElement.className = "trace-output";
+            traceElement.textContent = "trace:\n" + JSON.stringify(trace, null, 2);
+            output.appendChild(traceElement);
+          }
         } else {
           setPlainText(output, "请求失败：" + result.msg);
         }
