@@ -103,17 +103,12 @@ def chunk_text(
     max_chars: int = 600,
     overlap_chars: int = 80,
 ) -> List[str]:
-    """
-    更适合 Markdown 制度文档的切块方式。
-
-    优先按 Markdown 二级标题 ## 切分。
-    如果某个章节仍然太长，再继续细切。
-    """
     text = normalize_text(text)
     sections = re.split(r"(?=^##\s+)", text, flags=re.MULTILINE)
-    sections = [s.strip() for s in sections if s.strip()]
+    sections = [section.strip() for section in sections if section.strip()]
+
     if any(re.match(r"^##\s+", section) for section in sections):
-        sections = [s for s in sections if re.match(r"^##\s+", s)]
+        sections = [section for section in sections if re.match(r"^##\s+", section)]
 
     final_chunks = []
 
@@ -141,6 +136,16 @@ def chunk_text(
             final_chunks.append(current.strip())
 
     return final_chunks
+
+
+def extract_section_title(chunk: str) -> str:
+    for line in chunk.splitlines():
+        match = re.match(r"^#{1,6}\s+(.+?)\s*$", line.strip())
+        if match:
+            return match.group(1).strip()
+
+    first_line = chunk.strip().splitlines()[0] if chunk.strip() else ""
+    return first_line[:60]
 
 
 def build_doc_hash(file_path: str) -> str:
@@ -185,6 +190,7 @@ def ingest_document(file_path: str) -> Dict[str, Any]:
                 "filename": path.name,
                 "chunk_index": index,
                 "total_chunks": len(chunks),
+                "section_title": extract_section_title(chunk),
             }
         )
 
@@ -272,6 +278,17 @@ def text_relevance_score(query: str, content: str) -> float:
     if normalized_query in normalized_content:
         return 10.0 + len(normalized_query) / max(len(normalized_content), 1)
 
+    query_terms = [
+        normalize_for_match(term)
+        for term in re.split(r"[\s,，。；;、/|]+", query)
+        if len(normalize_for_match(term)) >= 2
+    ]
+    term_score = 0.0
+    if query_terms:
+        matched_terms = [term for term in query_terms if term in normalized_content]
+        term_score = (len(matched_terms) / len(query_terms)) * 4.0
+        term_score += sum(min(len(term), 8) * 0.15 for term in matched_terms)
+
     query_bigrams = char_ngrams(normalized_query, 2)
     query_trigrams = char_ngrams(normalized_query, 3)
     content_bigrams = char_ngrams(normalized_content, 2)
@@ -288,7 +305,7 @@ def text_relevance_score(query: str, content: str) -> float:
         else 0.0
     )
 
-    return bigram_score + (trigram_score * 2)
+    return term_score + bigram_score + (trigram_score * 2)
 
 
 def build_search_item(
@@ -358,18 +375,7 @@ def search_knowledge(
     for rank, (item_id, content, metadata, distance) in enumerate(
         zip(ids, documents, metadatas, distances)
     ):
-        if max_distance is not None and distance is not None and distance > max_distance:
-            distance_filtered_candidates[item_id] = build_search_item(
-                item_id=item_id,
-                content=content,
-                metadata=metadata,
-                distance=distance,
-                query=query,
-                vector_rank=rank,
-            )
-            continue
-
-        candidates[item_id] = build_search_item(
+        search_item = build_search_item(
             item_id=item_id,
             content=content,
             metadata=metadata,
@@ -377,6 +383,12 @@ def search_knowledge(
             query=query,
             vector_rank=rank,
         )
+
+        if max_distance is not None and distance is not None and distance > max_distance:
+            distance_filtered_candidates[item_id] = search_item
+            continue
+
+        candidates[item_id] = search_item
 
     stored_items = collection.get(include=["documents", "metadatas"])
     stored_ids = stored_items.get("ids", [])
@@ -453,5 +465,5 @@ if __name__ == "__main__":
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
     print("\n检索测试:")
-    test = retrieve_knowledge("我在淘宝买了一把人体工学椅，可以报销吗？")
+    test = retrieve_knowledge("淘宝 人体工学椅 办公用品 报销 星辰采购网")
     print(test)

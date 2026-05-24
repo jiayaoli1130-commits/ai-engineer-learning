@@ -31,8 +31,8 @@ UPLOAD_DIR = Path("./uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(
-    title="AI Agent RAG Demo",
-    description="A local RAG agent service built with FastAPI, OpenAI SDK, and ChromaDB.",
+    title="Enterprise Agentic RAG Platform",
+    description="企业知识库智能体平台 built with FastAPI, OpenAI-compatible tool calling, and ChromaDB.",
 )
 
 
@@ -55,7 +55,7 @@ app.add_middleware(
 def root() -> dict[str, str]:
     return {
         "status": "ok",
-        "service": "AI Agent RAG Demo",
+        "service": "Enterprise Agentic RAG Platform",
         "docs": "/docs",
     }
 
@@ -68,7 +68,11 @@ def health() -> dict[str, str]:
 @app.post("/chat", response_model=ResultWrapper)
 def chat(request: ChatRequest) -> ResultWrapper:
     try:
-        agent_result = run_agent(request.message, include_trace=True)
+        agent_result = run_agent(
+            request.message,
+            session_id=request.session_id,
+            include_trace=True,
+        )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Agent processing failed: {exc}") from exc
 
@@ -76,6 +80,8 @@ def chat(request: ChatRequest) -> ResultWrapper:
         agent_result = {
             "answer": agent_result,
             "trace": [],
+            "sources": [],
+            "session_id": request.session_id,
         }
 
     return ResultWrapper(

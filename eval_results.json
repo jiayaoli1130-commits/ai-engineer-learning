@@ -1,0 +1,54 @@
+[
+  {
+    "id": "case_001",
+    "question": "我在淘宝买了一把人体工学椅，300块，可以报销吗？",
+    "passed": true,
+    "missing": [],
+    "forbidden_hit": [],
+    "answer": "根据知识库检索结果，回答如下：\n\n---\n\n## 关于人体工学椅报销\n\n根据公司 **《办公用品采购规定》**，人体工学椅属于办公用品范畴，但你的情况**大概率无法报销**，原因如下：\n\n### ❌ 问题1：购买渠道不符\n公司规定，办公用品（包括人体工学椅）**必须优先通过公司指定的 \"星辰采购网\" 下单购买**。私自在 **淘宝、京东、拼多多等第三方平台** 购买，公司**原则上不予报销**。\n\n### ❌ 问题2：未经提前审批\n即使是紧急情况，也需要在购买前**获得部门总监和财务部门的书面批准**。你提到已经在淘宝下单购买，属于事后行为，**事后补批通常不作为报销依据**。\n\n### ✅ 有利因素\n- **金额方面**：300 元未超过单件 500 元的审批线，如果渠道合规，不需要额外审批。\n- **品类归类**：人体工学椅属于办公用品，这是基于知识库内容的合理归类。\n\n### 📋 建议\n1. 如果你确实急需这把椅子且是工作需要，可以**先咨询直属主管或财务部门**，看是否有特殊情况处理的可能性。\n2. 今后如需办公用品，请优先通过 **星辰采购网** 购买，或在购买前走完审批流程。\n\n**总结：按现行规定，淘宝自行购买的 300 元人体工学椅，公司原则上不予报销。**\n\n**引用来源**\n- test_company_policy.md（chunk 1，distance 1.0297）\n- test_company_policy.md（chunk 7，distance 0.9496）\n- test_company_policy.md（chunk 2，distance 0.9831）\n- test_company_policy.md（chunk 4，distance 1.0884）\n- test_company_policy.md（chunk 3，distance 1.0136）"
+  },
+  {
+    "id": "case_002",
+    "question": "出差在一线城市住酒店一晚700元，可以全额报销吗？",
+    "passed": false,
+    "missing": [
+      "超过"
+    ],
+    "forbidden_hit": [],
+    "answer": "根据知识库检索结果，关于差旅住宿的规定如下：\n\n## 差旅住宿报销说明\n\n根据公司 **差旅住宿规定**：\n\n- **一线城市**住宿标准上限为 **每晚 600 元**\n- 您提到的一晚 **700 元**，已超出标准上限 **100 元**\n\n---\n\n### 能否全额报销？\n\n**不能直接全额报销。** 处理方式如下：\n\n1. **标准内部分（600 元）**：可以在标准范围内正常报销。\n2. **超出部分（100 元）**：需要 **由部门总监审批**。如果获得审批通过，则可以全额报销；若未获得审批，超出的 100 元需由 **员工个人承担**。\n\n### 建议操作\n- 在报销时注明超额情况，并提前与您的部门总监沟通确认，获取审批记录。\n- 提交报销时需提供 **正规发票、付款记录、消费明细** 以及必要的 **审批截图**（如总监审批记录）。\n\n如有其他疑问，可以进一步咨询！\n\n**引用来源**\n- test_company_policy.md（chunk 5，distance 0.7380）\n- test_company_policy.md（chunk 3，distance 0.8593）\n- test_company_policy.md（chunk 2，distance 1.0534）\n- test_company_policy.md（chunk 6，distance 1.0285）\n- test_company_policy.md（chunk 4，distance 1.1704）"
+  },
+  {
+    "id": "case_003",
+    "question": "加班吃饭花了100元，可以全部报销吗？",
+    "passed": true,
+    "missing": [],
+    "forbidden_hit": [],
+    "answer": "根据知识库检索结果，回答如下：\n\n---\n\n根据 **《公司报销制度 - 餐饮费用报销规定》**：\n\n> **普通员工因加班产生的工作餐费用，每人每天报销上限为 80 元。**\n\n你加班吃饭花了 **100 元**，超过规定的每日上限 **20 元**，因此**不能全部报销**。\n\n- ✅ **可报销金额**：**80 元**\n- ❌ **超出部分**：**20 元**（需由个人承担）\n\n---\n\n### 建议操作：\n1. 报销时按 **80 元** 提交，并附上加班记录或直属主管确认。\n2. 超出部分需自费承担。\n\n**引用来源**\n- test_company_policy.md（chunk 2，distance 0.9902）\n- test_company_policy.md（chunk 3，distance 1.0258）\n- test_company_policy.md（chunk 5，distance 1.4411）\n- test_company_policy.md（chunk 4，distance 1.2962）\n- test_company_policy.md（chunk 7，distance 1.3221）"
+  },
+  {
+    "id": "case_004",
+    "question": "我自己买了一台平板电脑，可以报销吗？",
+    "passed": true,
+    "missing": [],
+    "forbidden_hit": [],
+    "answer": "根据知识库检索结果，以下是关于您自行购买平板电脑报销问题的答复：\n\n---\n\n## ❌ 个人购买平板电脑，原则上不予报销\n\n根据公司**电子设备采购规定**，平板电脑属于**固定资产类设备**，相关规定如下：\n\n1. **必须通过统一采购**：电脑、手机、平板、相机等电子设备，**必须通过 IT 部门或行政部门统一申请**，不允许员工个人自行购买后直接报销。\n2. **无审批记录不予报销**：员工个人购买的设备，如**无正式审批记录**，公司原则上不予报销。\n3. **特殊情况有流程**：如果确实因岗位需要购买专业设备，应当：\n   - **先提交采购申请**\n   - 说明用途、预算和使用人\n   - 经**部门负责人、IT 部门、财务部门**审批后方可购买\n\n---\n\n### 建议您：\n\n如果您确实需要平板电脑用于工作，建议先向部门负责人提出申请，走正式的采购审批流程，而不是事后报销。如果目前已经自行购买，根据现有规定，**知识库中未查到可事后补批报销的明确依据**。\n\n**引用来源**\n- test_company_policy.md（chunk 4，distance 1.1181）\n- test_company_policy.md（chunk 3，distance 0.8660）\n- test_company_policy.md（chunk 2，distance 0.9860）\n- test_company_policy.md（chunk 5，distance 1.2004）\n- test_company_policy.md（chunk 1，distance 1.5951）"
+  },
+  {
+    "id": "case_005",
+    "question": "客户拜访打车花了230元，可以报销吗？",
+    "passed": true,
+    "missing": [],
+    "forbidden_hit": [],
+    "answer": "根据知识库检索结果，我来回答您的问题：\n\n---\n\n## 客户拜访打车费用报销说明\n\n可以报销，但需要注意以下事项：\n\n根据公司 **交通费用报销规定**：\n\n1. ✅ **客户拜访属于因公出行**，属于交通补助的适用范围（明确包含\"客户拜访\"）。\n2. ✅ **单次费用 230 元**，未超过每月交通补助上限 800 元。\n3. ⚠️ **单次超过 200 元**（230 元 > 200 元），需要**在报销单中说明**以下信息：\n   - 出行原因\n   - 起点和终点\n   - 业务目的\n\n### 建议操作步骤\n- 在报销系统中提交交通费用报销单\n- 附上打车发票\n- 在备注或说明中写清：客户名称、拜访时间、出发地→目的地、拜访业务目的\n\n### 注意\n根据知识库内容，这是基于公司制度的合理归类——客户拜访打车属于明确的因公交通支出，符合报销范围。\n\n**引用来源**\n- test_company_policy.md（chunk 2，distance 1.1121）\n- test_company_policy.md（chunk 3，distance 1.0839）\n- test_company_policy.md（chunk 5，distance 1.3831）\n- test_company_policy.md（chunk 7，distance 1.2490）\n- test_company_policy.md（chunk 4，distance 1.1895）"
+  },
+  {
+    "id": "case_006",
+    "question": "我周末私人旅游打车，可以报销吗？",
+    "passed": false,
+    "missing": [],
+    "forbidden_hit": [
+      "可以报销"
+    ],
+    "answer": "根据知识库检索结果，我可以明确回答你的问题：\n\n---\n\n**不可以报销。**\n\n根据公司报销制度（来源：`test_company_policy.md`），明确规定：\n\n> **员工因个人原因产生的交通费用，例如周末私人出行、旅游、探亲等，不属于报销范围。**\n\n你提到的周末私人旅游打车，属于典型的**个人原因产生的交通费用**，不符合公司报销条件，需要由个人承担。\n\n**引用来源**\n- test_company_policy.md（chunk 2，distance 1.0609）\n- test_company_policy.md（chunk 3，distance 0.8998）\n- test_company_policy.md（chunk 5，distance 1.2478）"
+  }
+]

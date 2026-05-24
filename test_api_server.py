@@ -10,19 +10,22 @@ def test_chat_endpoint_wraps_agent_reply(monkeypatch):
     monkeypatch.setattr(
         api_server,
         "run_agent",
-        lambda message, include_trace=False: {
+        lambda message, session_id="default", include_trace=False: {
             "answer": f"echo: {message}",
             "trace": [
                 {
                     "tool_name": "get_weather",
                     "arguments": {"location": "北京"},
+                    "result_summary": "返回字段: condition",
                     "result": {"condition": "晴朗"},
                 }
             ],
+            "sources": [],
+            "session_id": session_id,
         },
     )
 
-    response = client.post("/chat", json={"message": "hello"})
+    response = client.post("/chat", json={"message": "hello", "session_id": "s1"})
 
     assert response.status_code == 200
     assert response.json() == {
@@ -34,9 +37,12 @@ def test_chat_endpoint_wraps_agent_reply(monkeypatch):
                 {
                     "tool_name": "get_weather",
                     "arguments": {"location": "北京"},
+                    "result_summary": "返回字段: condition",
                     "result": {"condition": "晴朗"},
                 }
             ],
+            "sources": [],
+            "session_id": "s1",
         },
     }
 
@@ -130,7 +136,7 @@ def test_knowledge_search_endpoint(monkeypatch):
 
     response = client.post(
         "/knowledge/search",
-        json={"query": "人体工学椅报销", "n_results": 1, "max_distance": 0.8},
+        json={"query": "人体工学椅 报销", "n_results": 1, "max_distance": 0.8},
     )
 
     assert response.status_code == 200

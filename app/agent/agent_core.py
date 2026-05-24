@@ -19,25 +19,30 @@ MODEL_NAME = os.getenv("MODEL_NAME", "deepseek-chat")
 
 
 SYSTEM_PROMPT = """
-你是一个企业内部 AI Agent。
+你是企业内部 AI Agent，负责基于企业知识库和业务工具回答问题。
 
 规则：
-1. 如果用户问题涉及公司制度、报销、采购、流程、内部知识库，必须先调用 retrieve_knowledge。
-2. 回答必须严格基于工具返回的内容。
-3. 不允许编造文档标题、制度名称、条款编号、审批人、金额、日期。
-4. 如果工具返回内容里没有明确来源名称，就只说“根据知识库检索结果”。
-5. 如果知识库没有检索到明确依据，要说“知识库中未找到明确依据”，不要猜测。
-6. 可以做常识归类，例如人体工学椅可以归为办公用品，但必须说明这是基于知识库内容的合理归类。
-7. 最终回答要简洁、明确、可执行，并在回答中使用 Markdown 格式。
+1. 涉及公司制度、报销、采购、流程或内部知识库时，必须调用 retrieve_knowledge。
+2. 调用 retrieve_knowledge 时，query 必须保留用户问题中的关键实体，包括物品、平台、金额、城市、人员和业务场景。
+3. 不要把具体问题过度概括成宽泛关键词。例如“淘宝买人体工学椅可以报销吗”应检索“淘宝 人体工学椅 办公用品 报销 星辰采购网”。
+4. 工具返回 results 为空时，必须说“知识库中未找到明确依据”。
+5. 回答必须基于工具结果，不允许编造制度名、金额、审批人、条款编号或日期。
+6. 可以做合理业务归类，但必须说明依据。
+7. 最终回答需要包含：结论、依据、建议、引用来源。
+8. 引用来源只列出真正用于回答的 chunk，不要列出所有检索结果。
 """
 
 
 def _format_reference(result: Dict[str, Any]) -> str:
     metadata = result.get("metadata") or {}
     filename = metadata.get("filename") or metadata.get("source") or "知识库检索结果"
+    section_title = metadata.get("section_title")
     chunk_index = metadata.get("chunk_index")
     distance = result.get("distance")
     details = []
+
+    if section_title:
+        details.append(str(section_title))
 
     if chunk_index is not None:
         details.append(f"chunk {int(chunk_index) + 1}")
@@ -49,6 +54,45 @@ def _format_reference(result: Dict[str, Any]) -> str:
         return f"{filename}（{'，'.join(details)}）"
 
     return str(filename)
+
+
+def _source_from_result(result: Dict[str, Any]) -> Dict[str, Any]:
+    metadata = result.get("metadata") or {}
+    return {
+        "filename": metadata.get("filename"),
+        "document_id": metadata.get("document_id"),
+        "section_title": metadata.get("section_title"),
+        "chunk_index": metadata.get("chunk_index"),
+        "distance": result.get("distance"),
+        "score": result.get("score"),
+    }
+
+
+def _extract_sources(tool_results: List[str]) -> List[Dict[str, Any]]:
+    sources = []
+    seen = set()
+
+    for raw_result in tool_results:
+        try:
+            payload = json.loads(raw_result)
+        except json.JSONDecodeError:
+            continue
+
+        for result in payload.get("results", []):
+            source = _source_from_result(result)
+            key = (
+                source.get("document_id"),
+                source.get("filename"),
+                source.get("chunk_index"),
+                source.get("section_title"),
+            )
+            if key in seen:
+                continue
+
+            seen.add(key)
+            sources.append(source)
+
+    return sources
 
 
 def _extract_references(tool_results: List[str]) -> List[str]:
@@ -92,7 +136,33 @@ def _parse_trace_value(raw_value: str) -> Any:
         return raw_value
 
 
-def run_agent(user_message: str, include_trace: bool = False) -> Any:
+def _summarize_tool_result(tool_name: str, parsed_result: Any) -> str:
+    if tool_name == "retrieve_knowledge" and isinstance(parsed_result, dict):
+        results = parsed_result.get("results") or []
+        if not results:
+            return "知识库中未找到明确依据"
+
+        first = results[0]
+        metadata = first.get("metadata") or {}
+        section = metadata.get("section_title") or metadata.get("filename") or "unknown"
+        chunk_index = metadata.get("chunk_index")
+        chunk_label = f" chunk {int(chunk_index) + 1}" if chunk_index is not None else ""
+        return f"命中 {section}{chunk_label}"
+
+    if isinstance(parsed_result, dict):
+        if parsed_result.get("error"):
+            return str(parsed_result["error"])
+        keys = ", ".join(list(parsed_result.keys())[:3])
+        return f"返回字段: {keys}" if keys else "返回空对象"
+
+    return str(parsed_result)[:120]
+
+
+def run_agent(
+    user_message: str,
+    session_id: str | None = "default",
+    include_trace: bool = False,
+) -> Any:
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_message},
@@ -109,16 +179,18 @@ def run_agent(user_message: str, include_trace: bool = False) -> Any:
         )
 
         ai_message = response.choices[0].message
-
         messages.append(ai_message.model_dump(exclude_none=True))
 
         if not ai_message.tool_calls:
             answer = _append_references(ai_message.content or "", knowledge_tool_results)
+            sources = _extract_sources(knowledge_tool_results)
 
             if include_trace:
                 return {
                     "answer": answer,
                     "trace": trace,
+                    "sources": sources,
+                    "session_id": session_id,
                 }
 
             return answer
@@ -162,11 +234,13 @@ def run_agent(user_message: str, include_trace: bool = False) -> Any:
                             ensure_ascii=False,
                         )
 
+            parsed_result = _parse_trace_value(tool_result)
             trace.append(
                 {
                     "tool_name": tool_name,
                     "arguments": trace_arguments,
-                    "result": _parse_trace_value(tool_result),
+                    "result_summary": _summarize_tool_result(tool_name, parsed_result),
+                    "result": parsed_result,
                 }
             )
 

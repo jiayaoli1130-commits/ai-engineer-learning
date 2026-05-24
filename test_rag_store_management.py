@@ -44,7 +44,11 @@ def test_ingest_document_replaces_old_chunks_and_stores_document_id(monkeypatch,
     monkeypatch.setattr(rag_store, "collection", fake_collection)
     monkeypatch.setattr(rag_store, "build_doc_hash", lambda file_path: "abc123")
     monkeypatch.setattr(rag_store, "read_document", lambda file_path: "# Policy")
-    monkeypatch.setattr(rag_store, "chunk_text", lambda text: ["chunk one", "chunk two"])
+    monkeypatch.setattr(
+        rag_store,
+        "chunk_text",
+        lambda text: ["## 办公用品采购规定\n\nchunk one", "## 交通费用报销规定\n\nchunk two"],
+    )
 
     result = rag_store.ingest_document(str(file_path))
 
@@ -53,6 +57,11 @@ def test_ingest_document_replaces_old_chunks_and_stores_document_id(monkeypatch,
     assert result["deleted_old_chunks"] == 3
     assert fake_collection.upsert_payload["ids"][0].startswith("policy_abc123_0_")
     assert fake_collection.upsert_payload["metadatas"][0]["document_id"] == "abc123"
+    assert fake_collection.upsert_payload["metadatas"][0]["section_title"] == "办公用品采购规定"
+
+
+def test_extract_section_title_reads_markdown_heading():
+    assert rag_store.extract_section_title("## 办公用品采购规定\n\n正文") == "办公用品采购规定"
 
 
 def test_list_and_delete_documents_use_document_id(monkeypatch):
@@ -150,3 +159,50 @@ def test_search_knowledge_keeps_strong_lexical_match_when_distance_is_high(monke
 
     assert result["results"][0]["metadata"]["filename"] == "test_company_policy.md"
     assert "特殊情况处理" in result["results"][0]["content"]
+
+
+class EntitySearchCollection:
+    def count(self):
+        return 3
+
+    def query(self, query_texts, n_results, include):
+        return {
+            "ids": [["traffic_1", "food_1", "office_1"]],
+            "documents": [[
+                "## 交通费用报销规定\n\n客户拜访打车费用超过 200 元需要说明。",
+                "## 餐饮费用报销规定\n\n加班工作餐每天上限 80 元。",
+                "## 办公用品采购规定\n\n淘宝购买人体工学椅等办公用品，未经审批原则上不予报销，应通过星辰采购网购买。",
+            ]],
+            "metadatas": [[
+                {"filename": "company_rules.md", "section_title": "交通费用报销规定"},
+                {"filename": "company_rules.md", "section_title": "餐饮费用报销规定"},
+                {"filename": "company_rules.md", "section_title": "办公用品采购规定"},
+            ]],
+            "distances": [[0.1, 0.2, 0.9]],
+        }
+
+    def get(self, where=None, include=None):
+        return {
+            "ids": ["traffic_1", "food_1", "office_1"],
+            "documents": [
+                "## 交通费用报销规定\n\n客户拜访打车费用超过 200 元需要说明。",
+                "## 餐饮费用报销规定\n\n加班工作餐每天上限 80 元。",
+                "## 办公用品采购规定\n\n淘宝购买人体工学椅等办公用品，未经审批原则上不予报销，应通过星辰采购网购买。",
+            ],
+            "metadatas": [
+                {"filename": "company_rules.md", "section_title": "交通费用报销规定"},
+                {"filename": "company_rules.md", "section_title": "餐饮费用报销规定"},
+                {"filename": "company_rules.md", "section_title": "办公用品采购规定"},
+            ],
+        }
+
+
+def test_search_knowledge_prefers_entity_preserving_query(monkeypatch):
+    monkeypatch.setattr(rag_store, "collection", EntitySearchCollection())
+
+    result = rag_store.search_knowledge(
+        "淘宝 人体工学椅 办公用品 报销 星辰采购网",
+        n_results=1,
+    )
+
+    assert result["results"][0]["metadata"]["section_title"] == "办公用品采购规定"
