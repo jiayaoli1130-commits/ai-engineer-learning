@@ -18,7 +18,9 @@
 - Markdown 章节切块与 `section_title` metadata
 - 检索结果关键词重排和 `distance` 过滤
 - `/chat` 返回固定结构：`answer + trace + sources`
+- v4 图编排入口：`intent_router -> business_tool_node -> rag_node -> human_review_node -> final_answer_node`
 - 企业工具：`query_employee`、`query_reimbursement`、`create_review_ticket`、`calculate_reimbursement_policy`
+- MCP-style 工具暴露：`/mcp/tools`、`/mcp/tools/call`、`/mcp/jsonrpc` 和 `python -m app.mcp_server`
 - 业务 API：员工查询、报销单查询、复核工单创建
 - `run_eval.py` 检查答案关键词、禁止词、trace 和 sources
 - 简单 HTML 前端
@@ -35,7 +37,7 @@ frontend/
        - Business DB Tool
        - Ticket Tool
        - Calculator Tool
-       - Future MCP Tool Adapter
+       - MCP Tool Adapter
   -> Data Layer
        - ChromaDB / Qdrant
        - SQLite / PostgreSQL
@@ -46,9 +48,9 @@ frontend/
 当前代码保持小步演进，没有一次性重构到完整目录。阶段状态：
 
 1. v2：可观测 + 可评测 Agent，已完成基础版
-2. v3：SQLite 业务数据库和企业工具，当前阶段
-3. v4：LangGraph Agent
-4. v5：MCP Demo
+2. v3：SQLite 业务数据库和企业工具，已完成基础版
+3. v4：LangGraph-style Agent 编排，当前基础版
+4. v5：MCP Demo，当前基础版
 
 ## Quick Start
 
@@ -125,6 +127,18 @@ uvicorn app.main:app --reload --port 8000
 - 报销单 `R1002`：客户拜访打车，230 元，有审批
 - 报销单 `R1003`：一线城市住宿，700 元，无审批
 
+### MCP Demo
+
+- `GET /mcp/tools`
+- `POST /mcp/tools/call`
+- `POST /mcp/jsonrpc`
+
+命令行 JSON-RPC demo：
+
+```bash
+echo {"jsonrpc":"2.0","id":1,"method":"tools/list"} | python -m app.mcp_server
+```
+
 ## Eval
 
 先启动后端并入库测试文档：
@@ -146,7 +160,7 @@ python run_eval.py
 ## Tests
 
 ```bash
-pytest test_agent_core.py test_api_server.py test_business_service.py test_business_tools.py test_rag_store_management.py test_rag.py
+pytest test_agent_core.py test_api_server.py test_business_service.py test_business_tools.py test_langgraph_agent.py test_mcp_tools.py test_rag_store_management.py test_rag.py
 ```
 
 全量 `pytest` 目前还会收集 `step_01_python_basics/` 里的早期练习文件；那些文件不是当前平台测试套件的一部分。

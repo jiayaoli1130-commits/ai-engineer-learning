@@ -6,7 +6,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from app.agent.agent_core import run_agent
+from app.agent.langgraph_agent import run_graph_agent as run_agent
 from app.rag.rag_store import (
     delete_document,
     ingest_document,
@@ -19,6 +19,8 @@ from app.schemas.request_response import (
     CreateReviewTicketRequest,
     DeleteDocumentRequest,
     IngestRequest,
+    McpJsonRpcRequest,
+    McpToolCallRequest,
     ResultWrapper,
     SearchRequest,
 )
@@ -27,6 +29,7 @@ from app.services.business_service import (
     query_employee_record,
     query_reimbursement_record,
 )
+from app.tools.mcp_tools import call_mcp_tool, handle_mcp_request, list_mcp_tools
 
 
 load_dotenv()
@@ -38,7 +41,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(
     title="Enterprise Agentic RAG Platform",
-    description="企业知识库智能体平台 built with FastAPI, OpenAI-compatible tool calling, ChromaDB, and SQLite.",
+    description="企业知识库智能体平台 built with FastAPI, OpenAI-compatible tool calling, ChromaDB, SQLite, and MCP-style tools.",
 )
 
 
@@ -238,6 +241,33 @@ def create_business_review_ticket(request: CreateReviewTicketRequest) -> ResultW
             reimbursement_id=request.reimbursement_id,
             reason=request.reason,
         ),
+    )
+
+
+@app.get("/mcp/tools", response_model=ResultWrapper)
+def get_mcp_tools() -> ResultWrapper:
+    return ResultWrapper(
+        code=200,
+        msg="success",
+        data={"tools": list_mcp_tools()},
+    )
+
+
+@app.post("/mcp/tools/call", response_model=ResultWrapper)
+def call_mcp_tool_endpoint(request: McpToolCallRequest) -> ResultWrapper:
+    return ResultWrapper(
+        code=200,
+        msg="success",
+        data=call_mcp_tool(request.name, request.arguments),
+    )
+
+
+@app.post("/mcp/jsonrpc", response_model=ResultWrapper)
+def mcp_jsonrpc_endpoint(request: McpJsonRpcRequest) -> ResultWrapper:
+    return ResultWrapper(
+        code=200,
+        msg="success",
+        data=handle_mcp_request(request.model_dump()),
     )
 
 

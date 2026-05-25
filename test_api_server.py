@@ -266,3 +266,59 @@ def test_business_ticket_endpoint(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["data"]["ticket"]["id"] == "TTEST001"
+
+
+def test_mcp_tools_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        api_server,
+        "list_mcp_tools",
+        lambda: [{"name": "query_employee", "description": "Query employee."}],
+    )
+
+    response = client.get("/mcp/tools")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["tools"][0]["name"] == "query_employee"
+
+
+def test_mcp_tool_call_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        api_server,
+        "call_mcp_tool",
+        lambda name, arguments: {
+            "success": True,
+            "tool_name": name,
+            "arguments": arguments,
+            "result": {"found": True},
+        },
+    )
+
+    response = client.post(
+        "/mcp/tools/call",
+        json={"name": "query_employee", "arguments": {"uid": "1001"}},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["tool_name"] == "query_employee"
+    assert response.json()["data"]["result"] == {"found": True}
+
+
+def test_mcp_jsonrpc_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        api_server,
+        "handle_mcp_request",
+        lambda request: {
+            "jsonrpc": "2.0",
+            "id": request["id"],
+            "result": {"tools": []},
+        },
+    )
+
+    response = client.post(
+        "/mcp/jsonrpc",
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["id"] == 1
+    assert response.json()["data"]["result"] == {"tools": []}

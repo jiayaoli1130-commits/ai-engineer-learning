@@ -31,3 +31,15 @@ class DeleteDocumentRequest(BaseModel):
 class CreateReviewTicketRequest(BaseModel):
     reimbursement_id: str
     reason: str
+
+
+class McpToolCallRequest(BaseModel):
+    name: str
+    arguments: dict[str, Any] = {}
+
+
+class McpJsonRpcRequest(BaseModel):
+    jsonrpc: str = "2.0"
+    id: int | str | None = None
+    method: str
+    params: dict[str, Any] = {}
