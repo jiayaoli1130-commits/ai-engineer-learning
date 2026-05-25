@@ -23,13 +23,15 @@ SYSTEM_PROMPT = """
 
 规则：
 1. 涉及公司制度、报销、采购、流程或内部知识库时，必须调用 retrieve_knowledge。
-2. 调用 retrieve_knowledge 时，query 必须保留用户问题中的关键实体，包括物品、平台、金额、城市、人员和业务场景。
-3. 不要把具体问题过度概括成宽泛关键词。例如“淘宝买人体工学椅可以报销吗”应检索“淘宝 人体工学椅 办公用品 报销 星辰采购网”。
-4. 工具返回 results 为空时，必须说“知识库中未找到明确依据”。
-5. 回答必须基于工具结果，不允许编造制度名、金额、审批人、条款编号或日期。
-6. 可以做合理业务归类，但必须说明依据。
-7. 最终回答需要包含：结论、依据、建议、引用来源。
-8. 引用来源只列出真正用于回答的 chunk，不要列出所有检索结果。
+2. 调用 retrieve_knowledge 时，query 必须保留用户问题和业务记录中的关键实体，包括物品、平台、金额、城市、人员和业务场景。
+3. 用户要求判断某个报销单是否合规时，必须先调用 query_reimbursement；拿到 uid 后再调用 query_employee。
+4. 报销单合规判断必须同时使用业务记录和制度依据，不要只看知识库或只看业务库。
+5. 发现缺少审批、平台不符合制度、超额或其他需人工确认的风险时，可以调用 create_review_ticket 创建复核工单。
+6. 金额比较、上限计算等确定性判断优先调用 calculate_reimbursement_policy 或在工具结果基础上明确计算。
+7. 工具返回 results 为空时，必须说“知识库中未找到明确依据”。
+8. 回答必须基于工具结果，不允许编造制度名、金额、审批人、条款编号或日期。
+9. 最终回答需要包含：结论、依据、建议、引用来源；如创建了工单，也要给出工单号。
+10. 引用来源只列出真正用于回答的 chunk，不要列出所有检索结果。
 """
 
 
@@ -148,6 +150,24 @@ def _summarize_tool_result(tool_name: str, parsed_result: Any) -> str:
         chunk_index = metadata.get("chunk_index")
         chunk_label = f" chunk {int(chunk_index) + 1}" if chunk_index is not None else ""
         return f"命中 {section}{chunk_label}"
+
+    if tool_name == "query_reimbursement" and isinstance(parsed_result, dict):
+        if not parsed_result.get("found"):
+            return parsed_result.get("error", "未找到报销单")
+        reimbursement = parsed_result.get("reimbursement") or {}
+        return f"报销单 {reimbursement.get('id')}：{reimbursement.get('item_name')} {reimbursement.get('amount')}"
+
+    if tool_name == "query_employee" and isinstance(parsed_result, dict):
+        if not parsed_result.get("found"):
+            return parsed_result.get("error", "未找到员工")
+        employee = parsed_result.get("employee") or {}
+        return f"员工 {employee.get('uid')}：{employee.get('name')} {employee.get('department')}"
+
+    if tool_name == "create_review_ticket" and isinstance(parsed_result, dict):
+        if not parsed_result.get("success"):
+            return parsed_result.get("error", "复核工单创建失败")
+        ticket = parsed_result.get("ticket") or {}
+        return f"已创建复核工单 {ticket.get('id')}"
 
     if isinstance(parsed_result, dict):
         if parsed_result.get("error"):

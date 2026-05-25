@@ -133,3 +133,88 @@ def test_run_agent_returns_tool_trace_when_requested(monkeypatch):
         "sources": [],
         "session_id": "s1",
     }
+
+
+def test_run_agent_can_trace_business_tool_sequence(monkeypatch):
+    calls = [
+        SimpleNamespace(
+            id="call_1",
+            function=SimpleNamespace(
+                name="query_reimbursement",
+                arguments='{"reimbursement_id": "R1001"}',
+            ),
+        ),
+        SimpleNamespace(
+            id="call_2",
+            function=SimpleNamespace(
+                name="query_employee",
+                arguments='{"uid": "1001"}',
+            ),
+        ),
+        SimpleNamespace(
+            id="call_3",
+            function=SimpleNamespace(
+                name="create_review_ticket",
+                arguments='{"reimbursement_id": "R1001", "reason": "缺少提前审批"}',
+            ),
+        ),
+    ]
+    responses = [
+        _fake_response(FakeMessage(tool_calls=calls)),
+        _fake_response(FakeMessage(content="已创建复核工单。")),
+    ]
+
+    fake_completions = SimpleNamespace(create=lambda **kwargs: responses.pop(0))
+    fake_client = SimpleNamespace(chat=SimpleNamespace(completions=fake_completions))
+    monkeypatch.setattr(agent_core, "client", fake_client)
+    monkeypatch.setitem(
+        agent_core.TOOL_DISPATCH,
+        "query_reimbursement",
+        lambda reimbursement_id: json.dumps(
+            {
+                "found": True,
+                "reimbursement": {
+                    "id": reimbursement_id,
+                    "uid": "1001",
+                    "item_name": "人体工学椅",
+                    "amount": 300,
+                },
+            },
+            ensure_ascii=False,
+        ),
+    )
+    monkeypatch.setitem(
+        agent_core.TOOL_DISPATCH,
+        "query_employee",
+        lambda uid: json.dumps(
+            {"found": True, "employee": {"uid": uid, "name": "张三", "department": "研发部"}},
+            ensure_ascii=False,
+        ),
+    )
+    monkeypatch.setitem(
+        agent_core.TOOL_DISPATCH,
+        "create_review_ticket",
+        lambda reimbursement_id, reason: json.dumps(
+            {
+                "success": True,
+                "ticket": {
+                    "id": "TTEST001",
+                    "reimbursement_id": reimbursement_id,
+                    "reason": reason,
+                    "status": "open",
+                },
+            },
+            ensure_ascii=False,
+        ),
+    )
+
+    result = run_agent("判断报销单 R1001 是否合规", include_trace=True)
+
+    assert [item["tool_name"] for item in result["trace"]] == [
+        "query_reimbursement",
+        "query_employee",
+        "create_review_ticket",
+    ]
+    assert result["trace"][0]["result_summary"] == "报销单 R1001：人体工学椅 300"
+    assert result["trace"][1]["result_summary"] == "员工 1001：张三 研发部"
+    assert result["trace"][2]["result_summary"] == "已创建复核工单 TTEST001"

@@ -26,3 +26,8 @@ class SearchRequest(BaseModel):
 
 class DeleteDocumentRequest(BaseModel):
     document_id: str
+
+
+class CreateReviewTicketRequest(BaseModel):
+    reimbursement_id: str
+    reason: str

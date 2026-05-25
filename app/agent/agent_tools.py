@@ -1,6 +1,12 @@
 import json
 
 from app.rag.rag_store import retrieve_knowledge
+from app.tools.business_tools import (
+    calculate_reimbursement_policy,
+    create_review_ticket,
+    query_employee,
+    query_reimbursement,
+)
 
 
 mock_db = {
@@ -10,13 +16,13 @@ mock_db = {
 
 
 def query_user(uid):
-    """查询模拟用户信息。"""
+    """查询模拟用户信息，保留早期 tool calling 示例。"""
     user_data = mock_db.get(uid, {"error": "未找到该用户"})
     return json.dumps(user_data, ensure_ascii=False)
 
 
 def update_user_status(uid, new_status):
-    """更新模拟用户状态。"""
+    """更新模拟用户状态，保留早期 tool calling 示例。"""
     if uid in mock_db:
         mock_db[uid]["status"] = new_status
         return json.dumps({"success": True, "message": "状态更新成功"}, ensure_ascii=False)
@@ -59,10 +65,83 @@ tools_list = [
                     },
                     "max_distance": {
                         "type": "number",
-                        "description": "可选的向量距离上限；距离越小表示越相似，超过该值的结果会被过滤。",
+                        "description": "可选的向量距离上限；距离越小表示越相似。",
                     },
                 },
                 "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_reimbursement",
+            "description": (
+                "通过报销单 ID 查询真实业务报销记录。"
+                "当用户要求判断某个报销单是否合规时，必须先调用此工具获取报销单的物品、金额、平台、审批状态。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reimbursement_id": {
+                        "type": "string",
+                        "description": "报销单 ID，例如 R1001。",
+                    }
+                },
+                "required": ["reimbursement_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_employee",
+            "description": "通过员工 uid 查询业务数据库中的员工信息。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "uid": {"type": "string", "description": "员工工号，例如 1001。"}
+                },
+                "required": ["uid"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_review_ticket",
+            "description": (
+                "为需要人工复核的报销单创建复核工单。"
+                "只有当工具结果和制度依据显示存在不合规、缺少审批或超额风险时才调用。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "reimbursement_id": {
+                        "type": "string",
+                        "description": "需要复核的报销单 ID，例如 R1001。",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "创建复核工单的具体原因，必须基于报销单和制度检索结果。",
+                    },
+                },
+                "required": ["reimbursement_id", "reason"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "calculate_reimbursement_policy",
+            "description": "对金额和制度上限做确定性计算，返回可报销金额和超额金额。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "amount": {"type": "number", "description": "实际发生金额。"},
+                    "limit": {"type": "number", "description": "制度规定的上限金额。"},
+                },
+                "required": ["amount", "limit"],
             },
         },
     },
@@ -115,8 +194,12 @@ tools_list = [
 ]
 
 TOOL_DISPATCH = {
+    "retrieve_knowledge": retrieve_knowledge,
+    "query_reimbursement": query_reimbursement,
+    "query_employee": query_employee,
+    "create_review_ticket": create_review_ticket,
+    "calculate_reimbursement_policy": calculate_reimbursement_policy,
     "get_weather": get_weather,
     "query_user": query_user,
     "update_user_status": update_user_status,
-    "retrieve_knowledge": retrieve_knowledge,
 }

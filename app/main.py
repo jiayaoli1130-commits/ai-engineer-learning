@@ -16,10 +16,16 @@ from app.rag.rag_store import (
 )
 from app.schemas.request_response import (
     ChatRequest,
+    CreateReviewTicketRequest,
     DeleteDocumentRequest,
     IngestRequest,
     ResultWrapper,
     SearchRequest,
+)
+from app.services.business_service import (
+    create_review_ticket_record,
+    query_employee_record,
+    query_reimbursement_record,
 )
 
 
@@ -32,7 +38,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(
     title="Enterprise Agentic RAG Platform",
-    description="企业知识库智能体平台 built with FastAPI, OpenAI-compatible tool calling, and ChromaDB.",
+    description="企业知识库智能体平台 built with FastAPI, OpenAI-compatible tool calling, ChromaDB, and SQLite.",
 )
 
 
@@ -48,8 +54,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# Start with: python.exe -m app.main
 
 @app.get("/")
 def root() -> dict[str, str]:
@@ -204,6 +208,36 @@ def knowledge_reset() -> ResultWrapper:
         code=200,
         msg="success",
         data=result,
+    )
+
+
+@app.get("/business/employees/{uid}", response_model=ResultWrapper)
+def get_business_employee(uid: str) -> ResultWrapper:
+    return ResultWrapper(
+        code=200,
+        msg="success",
+        data=query_employee_record(uid),
+    )
+
+
+@app.get("/business/reimbursements/{reimbursement_id}", response_model=ResultWrapper)
+def get_business_reimbursement(reimbursement_id: str) -> ResultWrapper:
+    return ResultWrapper(
+        code=200,
+        msg="success",
+        data=query_reimbursement_record(reimbursement_id),
+    )
+
+
+@app.post("/business/tickets", response_model=ResultWrapper)
+def create_business_review_ticket(request: CreateReviewTicketRequest) -> ResultWrapper:
+    return ResultWrapper(
+        code=200,
+        msg="success",
+        data=create_review_ticket_record(
+            reimbursement_id=request.reimbursement_id,
+            reason=request.reason,
+        ),
     )
 
 

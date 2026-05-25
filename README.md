@@ -1,6 +1,6 @@
 # Enterprise Agentic RAG Platform
 
-企业知识库智能体平台：用 ChromaDB 检索制度依据，用 Agent 调用工具并整合结果，用 trace 解释每一步，用 eval 防止系统退化。
+企业知识库智能体平台：用 ChromaDB 检索制度依据，用 SQLite 查询真实业务记录，用 Agent 调用工具并整合结果，用 trace 解释每一步，用 eval 防止系统退化。
 
 ## What It Solves
 
@@ -13,10 +13,13 @@
 - FastAPI API layer
 - OpenAI-compatible tool calling agent
 - ChromaDB 本地向量知识库
+- SQLite 业务数据库
 - `.txt`、`.md`、`.pdf` 文档入库
 - Markdown 章节切块与 `section_title` metadata
 - 检索结果关键词重排和 `distance` 过滤
 - `/chat` 返回固定结构：`answer + trace + sources`
+- 企业工具：`query_employee`、`query_reimbursement`、`create_review_ticket`、`calculate_reimbursement_policy`
+- 业务 API：员工查询、报销单查询、复核工单创建
 - `run_eval.py` 检查答案关键词、禁止词、trace 和 sources
 - 简单 HTML 前端
 
@@ -40,10 +43,10 @@ frontend/
        - eval_results/
 ```
 
-当前代码仍保持小步演进，没有一次性重构到完整目录。后续优先顺序：
+当前代码保持小步演进，没有一次性重构到完整目录。阶段状态：
 
-1. v2：可观测 + 可评测 Agent
-2. v3：SQLite 业务数据库和企业工具
+1. v2：可观测 + 可评测 Agent，已完成基础版
+2. v3：SQLite 业务数据库和企业工具，当前阶段
 3. v4：LangGraph Agent
 4. v5：MCP Demo
 
@@ -80,7 +83,7 @@ uvicorn app.main:app --reload --port 8000
 
 ```json
 {
-  "message": "我在淘宝买了一把人体工学椅，300块，可以报销吗？",
+  "message": "帮我判断报销单 R1001 是否合规，如果不合规就创建复核工单。",
   "session_id": "default"
 }
 ```
@@ -109,6 +112,19 @@ uvicorn app.main:app --reload --port 8000
 - `POST /knowledge/delete`
 - `POST /knowledge/reset`
 
+### Business
+
+- `GET /business/employees/{uid}`
+- `GET /business/reimbursements/{reimbursement_id}`
+- `POST /business/tickets`
+
+示例业务数据会自动初始化到 `data/business.db`：
+
+- 员工 `1001`：张三，研发部
+- 报销单 `R1001`：张三在淘宝购买人体工学椅，300 元，无提前审批
+- 报销单 `R1002`：客户拜访打车，230 元，有审批
+- 报销单 `R1003`：一线城市住宿，700 元，无审批
+
 ## Eval
 
 先启动后端并入库测试文档：
@@ -130,7 +146,7 @@ python run_eval.py
 ## Tests
 
 ```bash
-pytest test_agent_core.py test_api_server.py test_rag_store_management.py test_rag.py
+pytest test_agent_core.py test_api_server.py test_business_service.py test_business_tools.py test_rag_store_management.py test_rag.py
 ```
 
 全量 `pytest` 目前还会收集 `step_01_python_basics/` 里的早期练习文件；那些文件不是当前平台测试套件的一部分。
@@ -153,4 +169,4 @@ Vercel frontend:
 - Build Command: leave empty
 - Output Directory: leave empty or `.`
 
-当前演示版使用本地 ChromaDB persistence at `./my_vector_db`。在 Render 等云环境中，本地文件长期可靠性有限，重启或重新部署后可能需要重新上传文档。正式版本建议升级到 Qdrant Cloud、Pinecone、Supabase pgvector 或托管 Chroma。
+当前演示版使用本地 ChromaDB persistence at `./my_vector_db`，业务库使用本地 SQLite at `data/business.db`。在 Render 等云环境中，本地文件长期可靠性有限，重启或重新部署后可能需要重新上传文档并重新初始化业务数据。正式版本建议升级到 Qdrant Cloud、Pinecone、Supabase pgvector 或托管 Chroma，并将 SQLite 替换为 PostgreSQL。

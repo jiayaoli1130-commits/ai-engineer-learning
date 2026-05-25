@@ -46,5 +46,13 @@
     "must_not_include": ["可以报销", "属于工作支出"],
     "trace_must_include": ["交通费用报销规定"],
     "sources_must_include": ["交通费用报销规定"]
+  },
+  {
+    "id": "case_007",
+    "question": "帮我判断报销单 R1001 是否合规，如果不合规就创建复核工单。",
+    "must_include": ["R1001", "人体工学椅", "淘宝", "不予报销", "复核工单"],
+    "must_not_include": ["无需复核", "一定可以报销"],
+    "trace_must_include": ["query_reimbursement", "query_employee", "retrieve_knowledge", "create_review_ticket"],
+    "sources_must_include": ["办公用品采购规定"]
   }
 ]

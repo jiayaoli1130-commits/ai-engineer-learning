@@ -213,3 +213,56 @@ def test_knowledge_reset_endpoint(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["data"]["success"] is True
+
+
+def test_business_employee_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        api_server,
+        "query_employee_record",
+        lambda uid: {"found": True, "employee": {"uid": uid, "name": "张三"}},
+    )
+
+    response = client.get("/business/employees/1001")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["employee"]["name"] == "张三"
+
+
+def test_business_reimbursement_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        api_server,
+        "query_reimbursement_record",
+        lambda reimbursement_id: {
+            "found": True,
+            "reimbursement": {"id": reimbursement_id, "item_name": "人体工学椅"},
+        },
+    )
+
+    response = client.get("/business/reimbursements/R1001")
+
+    assert response.status_code == 200
+    assert response.json()["data"]["reimbursement"]["id"] == "R1001"
+
+
+def test_business_ticket_endpoint(monkeypatch):
+    monkeypatch.setattr(
+        api_server,
+        "create_review_ticket_record",
+        lambda reimbursement_id, reason: {
+            "success": True,
+            "ticket": {
+                "id": "TTEST001",
+                "reimbursement_id": reimbursement_id,
+                "reason": reason,
+                "status": "open",
+            },
+        },
+    )
+
+    response = client.post(
+        "/business/tickets",
+        json={"reimbursement_id": "R1001", "reason": "缺少提前审批"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["ticket"]["id"] == "TTEST001"
