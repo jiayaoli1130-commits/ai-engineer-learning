@@ -47,6 +47,23 @@ def test_chat_endpoint_wraps_agent_reply(monkeypatch):
     }
 
 
+def test_cors_allows_vercel_preview_origin():
+    response = client.options(
+        "/chat",
+        headers={
+            "Origin": "https://preview-ai-engineer-learning.vercel.app",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert (
+        response.headers["access-control-allow-origin"]
+        == "https://preview-ai-engineer-learning.vercel.app"
+    )
+
+
 def test_knowledge_ingest_endpoint(monkeypatch):
     monkeypatch.setattr(
         api_server,
